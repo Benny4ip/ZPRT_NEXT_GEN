@@ -27,7 +27,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Publish app
-        run: dotnet publish src/ZprtNextGen.App -c Release
+        run: dotnet publish src/ZprtNextGen.App -c Release -o publish/app
 
       - name: Download engine
         shell: pwsh
