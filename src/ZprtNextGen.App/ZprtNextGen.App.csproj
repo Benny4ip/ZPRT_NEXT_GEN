@@ -11,12 +11,23 @@
     <ApplicationIcon>..\..\assets\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <AssemblyName>ZprtNextGen</AssemblyName>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ZprtNextGen.Core\ZprtNextGen.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\..\assets\icon.ico" Link="assets\icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\presets\presets.json" Link="presets\presets.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
