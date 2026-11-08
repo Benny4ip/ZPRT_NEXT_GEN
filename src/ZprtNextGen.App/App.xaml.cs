@@ -1,11 +1,11 @@
 ﻿#nullable enable
 
 using System;
-using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using ZprtNextGen.App.Services;
 using ZprtNextGen.App.ViewModels;
 using ZprtNextGen.Core.Diagnostics;
 using ZprtNextGen.Core.Engine;
@@ -18,85 +18,145 @@ using ZprtNextGen.Core.Startup;
 namespace ZprtNextGen.App;
 
 /// <summary>
-/// Interaction logic for App.xaml.
-/// Временная композиция (заглушка): будет заменена реальной в Task 17.
+/// Точка входа приложения: single instance, проверка прав администратора,
+/// загрузка настроек и каталога пресетов, композиция сервисов, жизненный цикл окна и трея.
 /// </summary>
 public partial class App : Application
 {
+    private SingleInstanceGuard? _guard;
+    private TrayService? _tray;
+    private MainViewModel? _vm;
+    private MainWindow? _mainWindow;
+    private bool _vmShutdown;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
+        // 1. Один экземпляр приложения.
+        _guard = new SingleInstanceGuard("main");
+        if (!_guard.IsOwner)
+        {
+            MessageBox.Show("ZPRT NEXT GEN уже запущен", "ZPRT NEXT GEN",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            Shutdown();
+            return;
+        }
+
+        // 2. Права администратора (требуются для WinDivert).
+        if (!SingleInstanceGuard.IsElevated())
+        {
+            MessageBox.Show("Запустите приложение от имени администратора", "ZPRT NEXT GEN",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown();
+            return;
+        }
+
+        // 3. Настройки.
+        var settingsStore = SettingsStore.CreateDefault();
+        var settings = settingsStore.Load();
+
+        // 4. Каталог пресетов.
+        var catalogPath = Path.Combine(AppContext.BaseDirectory, "presets", "presets.json");
+        PresetCatalog catalog;
+        if (!File.Exists(catalogPath))
+        {
+            MessageBox.Show($"Каталог пресетов не найден: {catalogPath}", "ZPRT NEXT GEN",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            catalog = new PresetCatalog(0, string.Empty, string.Empty, [], []);
+        }
+        else
+        {
+            catalog = PresetCatalogLoader.Load(catalogPath);
+        }
+
+        // 5. Движок.
+        var engine = EngineLocator.Locate(settings.EnginePath, AppContext.BaseDirectory);
+        if (!engine.IsValid)
+        {
+            MessageBox.Show(
+                $"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}",
+                "ZPRT NEXT GEN",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+
+        // 6. Сервисы.
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var connectivity = ConnectivityService.CreateDefault();
+        var engineProcess = new EngineProcessManager();
+        var autostart = new ScheduledTaskAutostart(Environment.ProcessPath ?? string.Empty);
+        var logger = new AppLogger(Path.Combine(appData, "logs"));
+        var dispatcher = new WpfDispatcher();
+
+        // 7. Модель представления, главное окно, трей.
         var dependencies = new MainViewModelDependencies(
-            Catalog: StubCatalog,
-            Settings: new StubSettingsStore(),
-            Engine: new EngineValidation(true, @"C:\winws", []),
-            EngineProcess: new StubEngineProcessManager(),
-            Connectivity: new StubConnectivityService(),
-            Autostart: new StubAutostartService(),
-            Logger: new StubLogger(),
-            Dispatcher: new StubUiDispatcher(),
-            Confirm: _ => true);
+            Catalog: catalog,
+            Settings: settingsStore,
+            Engine: engine,
+            EngineProcess: engineProcess,
+            Connectivity: connectivity,
+            Autostart: autostart,
+            Logger: logger,
+            Dispatcher: dispatcher,
+            Confirm: ConfirmEngineAction,
+            LocateEngine: path => EngineLocator.Locate(path, AppContext.BaseDirectory));
 
-        var mainWindow = new MainWindow(new MainViewModel(dependencies));
-        mainWindow.Show();
+        _vm = new MainViewModel(dependencies);
+        _mainWindow = new MainWindow(_vm);
+
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "assets", "icon.ico");
+        var icon = new Icon(iconPath);
+        _tray = new TrayService(
+            icon,
+            toggle: () =>
+            {
+                try
+                {
+                    _ = _vm!.ToggleAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex.Message, ex);
+                }
+            },
+            show: () =>
+            {
+                _mainWindow!.Show();
+                if (_mainWindow.WindowState == WindowState.Minimized)
+                    _mainWindow.WindowState = WindowState.Normal;
+                _mainWindow.Activate();
+            },
+            exit: () => _mainWindow!.RequestExit());
+
+        _mainWindow.Show();
     }
 
-    private static readonly PresetCatalog StubCatalog = new(
-        1,
-        "winws",
-        "1.0",
-        new List<PresetGroup> { new("general", "Общий") },
-        new List<Preset> { new("general", "general", "Общий", "Стандартный набор правил", string.Empty) });
-
-    private sealed class StubSettingsStore : ISettingsStore
+    private static bool ConfirmEngineAction(string message)
     {
-        public string Path =>
-            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ZPRT_NEXT_GEN", "settings.stub.json");
-
-        public AppSettings Load() => new();
-
-        public void Save(AppSettings settings) { }
+        var result = MessageBox.Show(message, "ZPRT NEXT GEN",
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        return result == MessageBoxResult.Yes;
     }
 
-    private sealed class StubEngineProcessManager : IEngineProcessManager
+    protected override void OnExit(ExitEventArgs e)
     {
-        public EngineStatus Status => EngineStatus.Stopped;
-        public int? OwnedProcessId => null;
-        public event EventHandler<EngineStatusChangedEventArgs> StatusChanged = delegate { };
-        public event EventHandler<string> OutputReceived = delegate { };
+        if (_vm is not null && !_vmShutdown)
+        {
+            try
+            {
+                _vm.ShutdownAsync(_vm.IsRunning).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                // Завершение при выходе: ошибки уже зарегистрированы логгером.
+            }
+            _vmShutdown = true;
+        }
 
-        public Task StartAsync(string executablePath, string arguments, string workingDirectory, CancellationToken ct) =>
-            Task.CompletedTask;
+        _tray?.Dispose();
+        _guard?.Dispose();
 
-        public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
-
-        public bool IsForeignInstanceRunning() => false;
-
-        public void Dispose() { }
-    }
-
-    private sealed class StubConnectivityService : IConnectivityService
-    {
-        public Task<ConnectivityReport> CheckAsync(CancellationToken ct) =>
-            Task.FromResult(new ConnectivityReport(Array.Empty<ConnectivityResult>()));
-    }
-
-    private sealed class StubAutostartService : IAutostartService
-    {
-        public bool IsEnabled() => false;
-        public void Enable() { }
-        public void Disable() { }
-    }
-
-    private sealed class StubLogger : IAppLogger
-    {
-        public void Info(string message) { }
-        public void Error(string message, Exception? exception = null) { }
-    }
-
-    private sealed class StubUiDispatcher : IUiDispatcher
-    {
-        public void Post(Action action) => action();
+        base.OnExit(e);
     }
 }

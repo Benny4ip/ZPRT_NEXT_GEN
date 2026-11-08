@@ -51,6 +51,9 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs e) => await _viewModel.InitializeAsync();
 
+    /// <summary>Разрешить выход из приложения: следующее закрытие окна не будет свёрнуто в трей.</summary>
+    public void RequestExit() => _exiting = true;
+
     private async void OnClosing(object sender, CancelEventArgs e)
     {
         if (_viewModel.MinimizeToTray && !_exiting)
@@ -60,7 +63,27 @@ public partial class MainWindow : Window
             return;
         }
 
-        await _viewModel.ShutdownAsync(stopEngine: true);
+        var stopEngine = true;
+        if (_viewModel.IsRunning)
+        {
+            var result = MessageBox.Show(
+                "Остановить движок перед выходом?",
+                "ZPRT NEXT GEN",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question,
+                MessageBoxResult.Yes);
+
+            if (result == MessageBoxResult.Cancel)
+            {
+                _exiting = false;
+                e.Cancel = true;
+                return;
+            }
+
+            stopEngine = result == MessageBoxResult.Yes;
+        }
+
+        await _viewModel.ShutdownAsync(stopEngine);
     }
 
     private void OnLogLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -70,7 +93,7 @@ public partial class MainWindow : Window
             LogList.ScrollIntoView(LogList.Items[count - 1]);
     }
 
-    private void OnBrowseEngine(object sender, RoutedEventArgs e)
+    private async void OnBrowseEngine(object sender, RoutedEventArgs e)
     {
         var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
@@ -78,16 +101,13 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
-            _ = _viewModel.ChangeEnginePathAsync(dialog.SelectedPath);
+            await _viewModel.ChangeEnginePathAsync(dialog.SelectedPath);
         }
     }
 
     private void OnAbout(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show(
-            "ZPRT NEXT GEN\nОболочка управления обходом блокировок вокруг winws.",
-            "О программе",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        var about = new AboutWindow(_viewModel.EngineVersion) { Owner = this };
+        about.ShowDialog();
     }
 }

@@ -220,6 +220,9 @@ public partial class MainViewModel : INotifyPropertyChanged
         set => SetField(ref _statusText, value);
     }
 
+    /// <summary>Версия движка из каталога пресетов.</summary>
+    public string EngineVersion => _catalog.EngineVersion;
+
     public MeditationState AnimationState
     {
         get => _animationState;
