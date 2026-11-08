@@ -333,13 +333,12 @@ public partial class MainViewModel : INotifyPropertyChanged
 
             var arguments = PresetArgumentBuilder.Build(preset, root, _settings.GameFilter);
             var binDirectory = Path.Combine(root, "bin");
-
-            await _engineProcess.StartAsync(
+            var startTask = _engineProcess.StartAsync(
                 Path.Combine(binDirectory, "winws.exe"),
                 arguments,
                 binDirectory,
                 CancellationToken.None);
-
+            await startTask.WaitAsync(TimeSpan.FromSeconds(10));
             await TestConnectionAsync();
         }
         catch (Exception ex)
@@ -357,7 +356,8 @@ public partial class MainViewModel : INotifyPropertyChanged
     {
         try
         {
-            var report = await _connectivity.CheckAsync(CancellationToken.None);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var report = await _connectivity.CheckAsync(cts.Token);
 
             _dispatcher.Post(() =>
             {
