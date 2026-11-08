@@ -105,8 +105,17 @@ public partial class App : Application
         _vm = new MainViewModel(dependencies);
         _mainWindow = new MainWindow(_vm);
 
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "assets", "icon.ico");
-        var icon = new Icon(iconPath);
+        Icon? icon = null;
+        try
+        {
+            var iconPath = Path.Combine(AppContext.BaseDirectory, "assets", "icon.ico");
+            icon = new Icon(iconPath);
+        }
+        catch (Exception ex)
+        {
+            logger?.Error($"Не удалось загрузить иконку приложения: {ex.Message}", ex);
+        }
+
         _tray = new TrayService(
             icon,
             toggle: () =>
