@@ -153,7 +153,7 @@
     <Grid>
         <ToggleButton x:Name="FieldToggle"
                       Style="{StaticResource PresetFieldToggle}"
-                      IsChecked="{Binding IsOpen, Mode=TwoWay, ElementName=PresetsPopup}"
+                      IsChecked="{Binding IsOpen, Mode=OneWay, ElementName=PresetsPopup}"
                       Content="{Binding SelectedPreset.Name, Mode=OneWay, ElementName=Root,
                                           TargetNullValue='Пресет не выбран', FallbackValue='Пресет не выбран'}"
                       MinWidth="260" Height="40" HorizontalAlignment="Left" />
