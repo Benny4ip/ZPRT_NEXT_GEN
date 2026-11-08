@@ -229,7 +229,7 @@ git commit -m "feat(core): parse zapret bat presets into winws arguments"
 **Files:**
 - Create: `src/ZprtNextGen.Core/Presets/PresetNaming.cs`, `src/ZprtNextGen.Core/Presets/PresetImporter.cs`
 - Test: `tests/ZprtNextGen.Core.Tests/Presets/PresetImporterTests.cs`
-- Test fixtures: `tests/ZprtNextGen.Core.Tests/Fixtures/engine/bin/winws.exe` (empty), `.../lists/list-general.txt` (empty), and copies of four real presets: `general.bat`, `general (ALT5).bat`, `general (EXP).bat`, `general (FAKE TLS AUTO).bat`, plus `service.bat` (must be ignored)
+- Test fixtures: `tests/ZprtNextGen.Core.Tests/Fixtures/bats/general.bat`, `general (ALT5).bat`, `general (EXP).bat`, `general (FAKE TLS AUTO).bat`, `service.bat` (must be ignored). Engine folders (`bin/winws.exe`, `lists/list-general.txt`) are created **at test runtime** in a temp directory — `.gitignore` excludes `bin/`/`*.exe`, so they must not be committed.
 
 **Interfaces:**
 - Consumes: `BatPresetParser.ParseArguments`, `PresetCatalog`, `PresetGroup`, `Preset`.
@@ -254,7 +254,7 @@ git commit -m "feat(core): parse zapret bat presets into winws arguments"
 
 - `ToId_ConvertsFileNames` theory: four examples above → expected ids.
 - `Describe_AltWithoutNumber_IsFirst` → `Альтернатива 1`.
-- `Import_RealPresetNames_ClassifiesGroups`: fixture engine with 4 bat + service.bat → 4 presets; group counts 2 general (general, ALT5), 1 faketls, 1 experimental; `service` absent; every arguments non-empty and contains `{{BIN}}`.
+- `Import_RealPresetNames_ClassifiesGroups`: test builds a temp engine dir with empty `bin\winws.exe` and `lists\list-general.txt`, copies the 5 bat fixtures into it → 4 presets; group counts 2 general (general, ALT5), 1 faketls, 1 experimental; `service` absent; every arguments non-empty and contains `{{BIN}}`.
 - `Import_MissingBin_ThrowsInvalidDataException`: empty engine dir → message contains `bin`.
 
 - [ ] **Step 2: Run tests to verify they fail**
