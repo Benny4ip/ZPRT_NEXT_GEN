@@ -65,6 +65,7 @@ public partial class MainViewModel : INotifyPropertyChanged
 
     private AppSettings _settings = new();
     private EngineValidation _engine = new(false, null, Array.Empty<string>());
+    private HashSet<string> _collapsedGroups = new(StringComparer.Ordinal);
     private bool _isBusy;
     private bool _canStart;
     private bool _isAutostartEnabled;
@@ -240,16 +241,17 @@ public partial class MainViewModel : INotifyPropertyChanged
         try
         {
             _settings = _settingsStore.Load();
+            _collapsedGroups = new HashSet<string>(_settings.CollapsedGroups, StringComparer.Ordinal);
 
             Groups = _catalog.Groups
-                .Select(group => new PresetGroupViewModel
+                .Select(group =>
                 {
-                    Id = group.Id,
-                    Name = group.Name,
-                    IsExpanded = !_settings.CollapsedGroups.Contains(group.Id),
-                    Presets = _catalog.Presets
+                    var groupPresets = _catalog.Presets
                         .Where(preset => preset.GroupId == group.Id)
-                        .ToList()
+                        .ToList();
+                    var groupVm = new PresetGroupViewModel(group.Id, group.Name, groupPresets, _collapsedGroups);
+                    groupVm.PropertyChanged += OnGroupIsExpandedChanged;
+                    return groupVm;
                 })
                 .ToList();
 
@@ -473,6 +475,21 @@ public partial class MainViewModel : INotifyPropertyChanged
     {
         if (parameter is Preset preset)
             SelectedPreset = preset;
+    }
+
+    private void OnGroupIsExpandedChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not nameof(PresetGroupViewModel.IsExpanded) ||
+            sender is not PresetGroupViewModel group)
+            return;
+
+        if (group.IsExpanded)
+            _collapsedGroups.Remove(group.Id);
+        else
+            _collapsedGroups.Add(group.Id);
+
+        _settings = _settings with { CollapsedGroups = [.. _collapsedGroups] };
+        SaveSettings();
     }
 
     private void OnOpenLogs()

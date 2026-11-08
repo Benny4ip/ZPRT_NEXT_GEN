@@ -62,8 +62,11 @@
             </StackPanel>
         </Grid>
 
-        <!-- Пресеты (заполняется в Task 16). -->
-        <ContentControl x:Name="PresetHost" Grid.Row="1" Margin="0,0,0,16" />
+        <!-- Пресеты: сгруппированный селектор (Task 16). -->
+        <clr:PresetSelector Grid.Row="1" Margin="0,0,0,16"
+                            Groups="{Binding Groups}"
+                            SelectedPreset="{Binding SelectedPreset, Mode=TwoWay}"
+                            SelectCommand="{Binding SelectPresetCommand}" />
 
         <!-- Связь и лог. -->
         <Grid Grid.Row="2">
