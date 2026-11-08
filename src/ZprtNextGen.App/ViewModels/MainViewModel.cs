@@ -77,6 +77,7 @@ public partial class MainViewModel : INotifyPropertyChanged
     private Preset? _selectedPreset;
     private readonly ObservableCollection<string> _logLines = new();
     private IReadOnlyList<ConnectivityRowViewModel> _connectivityRows = Array.Empty<ConnectivityRowViewModel>();
+    private IReadOnlyList<PresetGroupViewModel> _groups = Array.Empty<PresetGroupViewModel>();
 
     public MainViewModel(MainViewModelDependencies dependencies)
     {
@@ -113,7 +114,11 @@ public partial class MainViewModel : INotifyPropertyChanged
 
     public ICommand ExitCommand => _exitCommand;
 
-    public IReadOnlyList<PresetGroupViewModel> Groups { get; private set; } = Array.Empty<PresetGroupViewModel>();
+    public IReadOnlyList<PresetGroupViewModel> Groups
+    {
+        get => _groups;
+        private set => SetField(ref _groups, value);
+    }
 
     public Preset? SelectedPreset
     {
@@ -362,7 +367,7 @@ public partial class MainViewModel : INotifyPropertyChanged
                     .ToList();
 
                 AnimationState = AnimationStateResolver.Resolve(_engineProcess.Status, report);
-                StatusText = report.IsConnected ? "Связь подтверждена." : "Связь не подтверждена.";
+                StatusText = report.IsConnected ? "Связь подтверждена" : "Связь не подтверждена";
             });
         }
         catch (Exception ex)
@@ -418,6 +423,8 @@ public partial class MainViewModel : INotifyPropertyChanged
                 AnimationState = MeditationState.Stopped;
                 StatusText = "Движок остановлен";
             }
+
+            _engineProcess.OutputReceived -= OnOutputReceived;
         }
         catch (Exception ex)
         {
@@ -501,6 +508,7 @@ public partial class MainViewModel : INotifyPropertyChanged
         {
             IsAutostartEnabled = !enable;
             _settings = _settings with { Autostart = IsAutostartEnabled };
+            SaveSettings();
             HandleError(ex);
         }
     }
