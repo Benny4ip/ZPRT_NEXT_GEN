@@ -57,12 +57,7 @@ public sealed class SettingsStore : ISettingsStore
             var json = File.ReadAllText(Path);
             return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
         }
-        catch (JsonException)
-        {
-            MoveToBadIgnoreFailure();
-            return new AppSettings();
-        }
-        catch (IOException)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
             MoveToBadIgnoreFailure();
             return new AppSettings();

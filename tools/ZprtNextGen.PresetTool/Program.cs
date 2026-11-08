@@ -71,12 +71,6 @@ internal static class Program
                         Args = p.Arguments
                     })
                     .ToList(),
-                Args = new ArgsDto
-                {
-                    Engine = engineRoot,
-                    Out = outPath,
-                    EngineVersion = engineVersion ?? "unknown"
-                }
             };
 
             var options = new JsonSerializerOptions
@@ -129,9 +123,6 @@ internal static class Program
 
         [JsonPropertyName("presets")]
         public List<PresetDto> Presets { get; init; } = new();
-
-        [JsonPropertyName("args")]
-        public ArgsDto Args { get; init; } = new();
     }
 
     private sealed class GroupDto
@@ -161,15 +152,5 @@ internal static class Program
         public string Args { get; init; } = string.Empty;
     }
 
-    private sealed class ArgsDto
-    {
-        [JsonPropertyName("engine")]
-        public string Engine { get; init; } = string.Empty;
-
-        [JsonPropertyName("out")]
-        public string Out { get; init; } = string.Empty;
-
-        [JsonPropertyName("engineVersion")]
-        public string EngineVersion { get; init; } = string.Empty;
-    }
 }
+
