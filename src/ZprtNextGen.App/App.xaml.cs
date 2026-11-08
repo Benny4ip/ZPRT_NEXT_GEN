@@ -143,15 +143,16 @@ public partial class App : Application
     {
         if (_vm is not null && !_vmShutdown)
         {
+            _vmShutdown = true;
             try
             {
-                _vm.ShutdownAsync(_vm.IsRunning).GetAwaiter().GetResult();
+                // Не блокируем UI-поток при выходе: процесс всё равно завершается.
+                _ = _vm.ShutdownAsync(_vm.IsRunning);
             }
             catch
             {
                 // Завершение при выходе: ошибки уже зарегистрированы логгером.
             }
-            _vmShutdown = true;
         }
 
         _tray?.Dispose();
