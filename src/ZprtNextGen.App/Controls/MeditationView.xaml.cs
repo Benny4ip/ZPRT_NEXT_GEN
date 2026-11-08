@@ -110,6 +110,10 @@ public partial class MeditationView : UserControl
             if (FindName($"Particle{i:D2}") is FrameworkElement particle)
             {
                 particle.Opacity = 0;
+                if (FindName($"Particle{i:D2}Transform") is TranslateTransform particleTransform)
+                {
+                    particleTransform.Y = 0;
+                }
             }
         }
     }

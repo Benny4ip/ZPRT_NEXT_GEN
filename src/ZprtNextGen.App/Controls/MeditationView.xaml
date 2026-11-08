@@ -14,6 +14,12 @@
                     <SineEase />
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
+            <!-- Restore state left dirty by Connected/Error (lift 0, scale 1, rays 0). -->
+            <DoubleAnimation Storyboard.TargetName="LiftTransform" Storyboard.TargetProperty="Y" To="0" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="RaysGroup" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="RaysRotate" Storyboard.TargetProperty="Angle" To="0" Duration="0:0:0.4" FillBehavior="Stop" />
         </Storyboard>
 
         <!-- Connecting: breath 0→-2→0, 1.6 s; aura opacity pulse 0.25↔0.55, 1 s autoreverse. -->
@@ -26,6 +32,12 @@
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="AuraGlow" Storyboard.TargetProperty="Opacity"
                              From="0.25" To="0.55" Duration="0:0:1" AutoReverse="True" RepeatBehavior="Forever" />
+            <!-- Reset anything Connected may have left dirty (lift 0, scale 1, rays 0). -->
+            <DoubleAnimation Storyboard.TargetName="LiftTransform" Storyboard.TargetProperty="Y" To="0" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="RaysGroup" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" FillBehavior="Stop" />
+            <DoubleAnimation Storyboard.TargetName="RaysRotate" Storyboard.TargetProperty="Angle" To="0" Duration="0:0:0.4" FillBehavior="Stop" />
         </Storyboard>
 
         <!-- Connected: lift 0→-52 (1.2 s, CubicEase EaseOut), scale 1→1.04,
