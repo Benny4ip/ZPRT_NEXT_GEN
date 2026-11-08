@@ -89,6 +89,28 @@ public partial class App : Application
         var logger = new AppLogger(Path.Combine(appData, "logs"));
         var dispatcher = new WpfDispatcher();
 
+        // Глобальные обработчики необработанных исключений: вместо молчаливого вылета
+        // показываем окно с текстом ошибки и пишем в лог.
+        DispatcherUnhandledException += (s, args) =>
+        {
+            args.Handled = true;
+            var ex = args.Exception;
+            logger.Error($"Необработанное исключение WPF: {ex}", ex);
+            MessageBox.Show($"ZPRT NEXT GEN stopped working:\n{ex.GetType().Name}: {ex.Message}\n\nSee logs for details.", "ZPRT NEXT GEN — ошибка",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+        {
+            var ex = (Exception)args.ExceptionObject;
+            logger.Error($"Необработанное исключение домена: {ex}", ex);
+            try { MessageBox.Show($"ZPRT NEXT GEN crashed:\n{ex.GetType().Name}: {ex.Message}", "ZPRT NEXT GEN — ошибка", MessageBoxButton.OK, MessageBoxImage.Error); } catch { }
+        };
+        TaskScheduler.UnobservedTaskException += (s, args) =>
+        {
+            args.SetObserved();
+            logger.Error($"Необработанное исключение задачи: {args.Exception}", args.Exception);
+        };
+
         // 7. Модель представления, главное окно, трей.
         var dependencies = new MainViewModelDependencies(
             Catalog: catalog,
@@ -117,7 +139,7 @@ public partial class App : Application
         }
 
         _tray = new TrayService(
-            icon,
+            icon!,
             toggle: () =>
             {
                 try
