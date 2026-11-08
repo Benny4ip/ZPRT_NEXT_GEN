@@ -163,7 +163,7 @@
                PlacementTarget="{Binding ElementName=FieldToggle}"
                StaysOpen="False"
                AllowsTransparency="True"
-               IsOpen="{Binding IsChecked, Mode=TwoWay, ElementName=FieldToggle}"
+               IsOpen="{Binding IsChecked, Mode=OneWay, ElementName=FieldToggle}"
                PopupAnimation="Fade"
                Opened="OnPopupOpened">
             <Border x:Name="PopupBorder"
