@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ZprtNextGen.Core\ZprtNextGen.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- WinForms implicit usings clash with WPF types (Application, MessageBox, etc.). -->
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>
