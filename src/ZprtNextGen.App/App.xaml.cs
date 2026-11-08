@@ -28,6 +28,7 @@ public partial class App : Application
     private MainViewModel? _vm;
     private MainWindow? _mainWindow;
     private bool _vmShutdown;
+    private bool _isHandlingException;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -94,16 +95,36 @@ public partial class App : Application
         DispatcherUnhandledException += (s, args) =>
         {
             args.Handled = true;
-            var ex = args.Exception;
-            logger.Error($"Необработанное исключение WPF: {ex}", ex);
-            MessageBox.Show($"ZPRT NEXT GEN stopped working:\n{ex.GetType().Name}: {ex.Message}\n\nSee logs for details.", "ZPRT NEXT GEN — ошибка",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            if (_isHandlingException)
+                return;
+            _isHandlingException = true;
+            try
+            {
+                var ex = args.Exception;
+                logger.Error($"Необработанное исключение WPF: {ex}", ex);
+                MessageBox.Show($"ZPRT NEXT GEN stopped working:\n{ex.GetType().Name}: {ex.Message}\n\nSee logs for details.", "ZPRT NEXT GEN — ошибка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isHandlingException = false;
+            }
         };
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
-            var ex = (Exception)args.ExceptionObject;
-            logger.Error($"Необработанное исключение домена: {ex}", ex);
-            try { MessageBox.Show($"ZPRT NEXT GEN crashed:\n{ex.GetType().Name}: {ex.Message}", "ZPRT NEXT GEN — ошибка", MessageBoxButton.OK, MessageBoxImage.Error); } catch { }
+            if (_isHandlingException)
+                return;
+            _isHandlingException = true;
+            try
+            {
+                var ex = (Exception)args.ExceptionObject;
+                logger.Error($"Необработанное исключение домена: {ex}", ex);
+                try { MessageBox.Show($"ZPRT NEXT GEN crashed:\n{ex.GetType().Name}: {ex.Message}", "ZPRT NEXT GEN — ошибка", MessageBoxButton.OK, MessageBoxImage.Error); } catch { }
+            }
+            finally
+            {
+                _isHandlingException = false;
+            }
         };
         TaskScheduler.UnobservedTaskException += (s, args) =>
         {

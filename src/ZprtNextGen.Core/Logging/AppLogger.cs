@@ -32,7 +32,16 @@ public class AppLogger : IAppLogger
     {
         ArgumentNullException.ThrowIfNull(directory);
         _directory = directory;
-        Directory.CreateDirectory(directory);
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (Exception ex)
+        {
+            // Если создать папку логов не удалось (нет прав, неверный путь),
+            // не умираем — логи просто не будут писаться.
+            Console.WriteLine($"Не удалось создать папку логов '{directory}': {ex.Message}");
+        }
     }
 
     private string LogFilePath =>
@@ -56,19 +65,24 @@ public class AppLogger : IAppLogger
 
         lock (_lock)
         {
-            File.AppendAllText(path, line + Environment.NewLine, new UTF8Encoding(false));
-
-            if (exception is not null)
+            try
             {
-                File.AppendAllText(path, $"{exception.GetType().FullName}: {exception.Message}{Environment.NewLine}", new UTF8Encoding(false));
-
-                var stackTrace = exception.StackTrace;
-                if (!string.IsNullOrEmpty(stackTrace))
+                File.AppendAllText(path, line + Environment.NewLine, new UTF8Encoding(false));
+                if (exception is not null)
                 {
-                    File.AppendAllText(path, stackTrace, new UTF8Encoding(false));
-                    if (!stackTrace.EndsWith(Environment.NewLine))
-                        File.AppendAllText(path, Environment.NewLine, new UTF8Encoding(false));
+                    File.AppendAllText(path, $"{exception.GetType().FullName}: {exception.Message}{Environment.NewLine}", new UTF8Encoding(false));
+                    var stackTrace = exception.StackTrace;
+                    if (!string.IsNullOrEmpty(stackTrace))
+                    {
+                        File.AppendAllText(path, stackTrace, new UTF8Encoding(false));
+                        if (!stackTrace.EndsWith(Environment.NewLine))
+                            File.AppendAllText(path, Environment.NewLine, new UTF8Encoding(false));
+                    }
                 }
+            }
+            catch
+            {
+                // Не можем записать лог — игнорируем, не удваиваем ошибку.
             }
         }
     }
