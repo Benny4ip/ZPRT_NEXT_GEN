@@ -94,7 +94,7 @@
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <DataTrigger Binding="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
                                 <Setter TargetName="Chevron" Property="Data" Value="M 0,0 8,0 4,8" />
                             </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
