@@ -22,4 +22,8 @@
     <ProjectReference Include="..\..\src\ZprtNextGen.Core\ZprtNextGen.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fixtures\**\*.bat" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
