@@ -18,9 +18,11 @@ internal static class Program
         string? outPath = null;
         string? engineVersion = null;
 
-        for (var i = 0; i < args.Length; i++)
+        try
         {
-            var arg = args[i];
+            for (var i = 0; i < args.Length; i++)
+            {
+                var arg = args[i];
             switch (arg)
             {
                 case "--engine":
@@ -33,8 +35,7 @@ internal static class Program
                     engineVersion = RequireValue(args, ref i, arg);
                     break;
                 default:
-                    Console.Error.WriteLine($"Неизвестный аргумент: {arg}");
-                    return ExitFailure;
+                    throw new ArgumentException($"Неизвестный аргумент: {arg}");
             }
         }
 
@@ -50,8 +51,6 @@ internal static class Program
             return ExitFailure;
         }
 
-        try
-        {
             var catalog = PresetImporter.Import(engineRoot, engineVersion ?? "unknown");
 
             var dto = new ImportDto
@@ -94,6 +93,7 @@ internal static class Program
             }
 
             File.WriteAllText(outPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            File.AppendAllText(outPath, Environment.NewLine);
             return ExitSuccess;
         }
         catch (Exception ex)
