@@ -77,7 +77,7 @@ tools\Import-Presets.ps1 -Engine <путь-к-движку> -Out presets\presets
 Упаковка релиза (требует предварительного `dotnet publish -c Release`):
 
 ```powershell
-dotnet publish src/ZprtNextGen.App -c Release
+dotnet publish src/ZprtNextGen.App -c Release -o publish/app
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\Pack-Release.ps1 -EngineDir <путь-к-движку> -Version 0.1.0
 ```
 
