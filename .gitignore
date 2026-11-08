@@ -1,0 +1,22 @@
+# Build output
+bin/
+obj/
+publish/
+.vs/
+
+# Local engine binaries (zapret / winws / WinDivert)
+engine/
+
+# Binaries and archives
+*.exe
+*.dll
+*.sys
+*.zip
+
+# User and temporary files
+*.user
+*_wpftmp.csproj
+
+# OS files
+Thumbs.db
+desktop.ini
