@@ -316,14 +316,14 @@ public partial class MainViewModel : INotifyPropertyChanged
             if (_engineProcess.IsForeignInstanceRunning())
             {
                 if (!_confirm(
-                        "Обход уже запущен другим способом. Остановите его вручную или закройте оригинальное окно."))
+                        "Обход уже запущен другим способом. Остановить его и запустить обход из этого приложения?"))
                 {
                     StatusText = "Обход уже запущен извне.";
                     return;
                 }
 
-                StatusText = "Остановите обход вручную";
-                return;
+                _engineProcess.KillForeignInstances();
+                await Task.Delay(1000);
             }
 
             var preset = _selectedPreset

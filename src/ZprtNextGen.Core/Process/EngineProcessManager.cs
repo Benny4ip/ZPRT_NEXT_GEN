@@ -51,6 +51,12 @@ public interface IEngineProcessManager : IDisposable
     /// т. е. есть экземпляр с PID, отличным от <see cref="OwnedProcessId"/>.
     /// </summary>
     bool IsForeignInstanceRunning();
+
+    /// <summary>
+    /// Завершить все процессы движка, кроме принадлежащего этому менеджеру (по PID).
+    /// Требует прав администратора.
+    /// </summary>
+    void KillForeignInstances();
 }
 
 public class EngineProcessManager : IEngineProcessManager
@@ -239,6 +245,33 @@ public class EngineProcessManager : IEngineProcessManager
         }
 
         return false;
+    }
+
+    public void KillForeignInstances()
+    {
+        Process[] foreign;
+        lock (_sync)
+        {
+            foreign = Process.GetProcessesByName(_engineProcessName)
+                .Where(p => !_ownedProcessId.HasValue || p.Id != _ownedProcessId.Value)
+                .ToArray();
+        }
+
+        foreach (var proc in foreign)
+        {
+            try
+            {
+                proc.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                // Лучшая попытка — игнорируем ошибки (процесс мог уже завершиться).
+            }
+            finally
+            {
+                proc.Dispose();
+            }
+        }
     }
 
     public void Dispose()
