@@ -16,9 +16,12 @@ public sealed class FakeConnectivity : IConnectivityService
 
     public int CheckCalls { get; private set; }
 
+    /// <summary>Если задан, проверка связи «висит» до завершения этого источника (для тестов гонок).</summary>
+    public TaskCompletionSource<ConnectivityReport>? Gate { get; set; }
+
     public Task<ConnectivityReport> CheckAsync(CancellationToken ct)
     {
         CheckCalls++;
-        return Task.FromResult(Report);
+        return Gate is not null ? Gate.Task : Task.FromResult(Report);
     }
 }

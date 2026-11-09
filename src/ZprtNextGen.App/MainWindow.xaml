@@ -45,10 +45,10 @@
                         IsEnabled="{Binding CanStart}"
                         MinWidth="240" Height="44"
                         HorizontalAlignment="Left"
-                        Margin="0,16,0,0"
-                        Content="Включить обход">
+                        Margin="0,16,0,0">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                            <Setter Property="Content" Value="Включить обход" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsRunning}" Value="True">
                                     <Setter Property="Content" Value="Выключить обход" />

@@ -86,11 +86,27 @@ public partial class MainWindow : Window
         await _viewModel.ShutdownAsync(stopEngine);
     }
 
+    private bool _scrollQueued;
+
     private void OnLogLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        var count = LogList.Items.Count;
-        if (count > 0)
-            LogList.ScrollIntoView(LogList.Items[count - 1]);
+        // Нельзя звать ScrollIntoView прямо из CollectionChanged: он форсирует UpdateLayout
+        // посреди уведомления, и ItemContainerGenerator рассинхронизируется
+        // ("накопленное количество N отличается от фактического M").
+        // Откладываем прокрутку до конца обработки очереди диспетчера и схлопываем повторы.
+        if (_scrollQueued)
+            return;
+
+        _scrollQueued = true;
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Background,
+            new Action(() =>
+            {
+                _scrollQueued = false;
+                var count = LogList.Items.Count;
+                if (count > 0)
+                    LogList.ScrollIntoView(LogList.Items[count - 1]);
+            }));
     }
 
     private async void OnBrowseEngine(object sender, RoutedEventArgs e)

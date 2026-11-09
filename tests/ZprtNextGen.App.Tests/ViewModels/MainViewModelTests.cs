@@ -296,6 +296,39 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public void Toggle_Start_DoesNotWaitForConnectivity()
+    {
+        var gate = new TaskCompletionSource<ConnectivityReport>();
+        var connectivity = new FakeConnectivity { Gate = gate };
+        var (vm, _, _, _, _, _) = CreateVm(BuildDependencies(connectivity: connectivity));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        var toggle = vm.ToggleAsync();
+
+        Assert.True(toggle.Wait(TimeSpan.FromSeconds(5)), "ToggleAsync не должен ждать проверку связи");
+        Assert.True(vm.IsRunning);
+        Assert.False(vm.IsBusy);
+        Assert.Equal(1, connectivity.CheckCalls);
+
+        gate.SetResult(connectivity.Report);
+    }
+
+    [Fact]
+    public void Toggle_Start_NotifiesIsRunningChange()
+    {
+        var (vm, _, _, _, _, _) = CreateVm();
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.ToggleAsync().GetAwaiter().GetResult();
+
+        Assert.True(vm.IsRunning);
+        Assert.Contains(nameof(MainViewModel.IsRunning), raised);
+    }
+
+    [Fact]
     public void ToggleAutostart_On_PersistsAndRevertsOnFailure()
     {
         var autostart = new FakeAutostart { EnableException = new System.InvalidOperationException(" boom ") };

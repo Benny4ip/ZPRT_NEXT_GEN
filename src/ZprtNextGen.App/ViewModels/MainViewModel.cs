@@ -93,7 +93,9 @@ public partial class MainViewModel : INotifyPropertyChanged
         _confirm = dependencies.Confirm ?? throw new ArgumentNullException(nameof(dependencies.Confirm));
         _locateEngine = dependencies.LocateEngine ?? (path => EngineLocator.Locate(path, AppContext.BaseDirectory));
 
-        _toggleCommand = new AsyncRelayCommand(async () => await ToggleAsync(), () => !IsBusy && CanStart);
+        _toggleCommand = new AsyncRelayCommand(
+            async () => await ToggleAsync(),
+            () => IsRunning || (!IsBusy && CanStart));
         _testConnectionCommand = new AsyncRelayCommand(async () => await TestConnectionAsync(), () => !IsBusy);
         _selectPresetCommand = new RelayCommand(OnSelectPreset, _ => !IsBusy);
         _openLogsCommand = new RelayCommand(_ => OnOpenLogs());
@@ -101,6 +103,7 @@ public partial class MainViewModel : INotifyPropertyChanged
         _exitCommand = new RelayCommand(_ => Application.Current?.Shutdown(), _ => Application.Current is not null);
 
         _engineProcess.OutputReceived += OnOutputReceived;
+        _engineProcess.StatusChanged += OnEngineStatusChanged;
     }
 
     public ICommand ToggleCommand => _toggleCommand;
@@ -298,20 +301,34 @@ public partial class MainViewModel : INotifyPropertyChanged
     /// <inheritdoc cref="ToggleAsync"/>
     public async Task ToggleAsync()
     {
+        // Остановка доступна всегда, даже пока идёт проверка связи после запуска.
+        if (IsRunning)
+        {
+            try
+            {
+                IsBusy = true;
+                await _engineProcess.StopAsync(CancellationToken.None);
+                AnimationState = MeditationState.Stopped;
+                StatusText = "Движок остановлен";
+            }
+            catch (Exception ex)
+            {
+                HandleError(ex);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+
+            return;
+        }
+
         if (IsBusy || !CanStart)
             return;
 
         try
         {
             IsBusy = true;
-
-            if (IsRunning)
-            {
-                await _engineProcess.StopAsync(CancellationToken.None);
-                AnimationState = MeditationState.Stopped;
-                StatusText = "Движок остановлен";
-                return;
-            }
 
             if (_engineProcess.IsForeignInstanceRunning())
             {
@@ -343,7 +360,11 @@ public partial class MainViewModel : INotifyPropertyChanged
                 binDirectory,
                 CancellationToken.None);
             await startTask.WaitAsync(TimeSpan.FromSeconds(10));
-            await TestConnectionAsync();
+            StatusText = "Обход включён";
+
+            // Проверку связи не ждём: иначе кнопка «Выключить обход» остаётся
+            // недоступной до её окончания (до 10 секунд).
+            _ = TestConnectionAsync();
         }
         catch (Exception ex)
         {
@@ -374,6 +395,13 @@ public partial class MainViewModel : INotifyPropertyChanged
                         Error = result.Error
                     })
                     .ToList();
+
+                // Если движок уже остановили, не перетираем статус остановки результатами связи.
+                if (_engineProcess.Status != EngineStatus.Running)
+                {
+                    AnimationState = AnimationStateResolver.Resolve(_engineProcess.Status, null);
+                    return;
+                }
 
                 AnimationState = AnimationStateResolver.Resolve(_engineProcess.Status, report);
                 StatusText = report.IsConnected ? "Связь подтверждена" : "Связь не подтверждена";
@@ -434,6 +462,7 @@ public partial class MainViewModel : INotifyPropertyChanged
             }
 
             _engineProcess.OutputReceived -= OnOutputReceived;
+            _engineProcess.StatusChanged -= OnEngineStatusChanged;
         }
         catch (Exception ex)
         {
@@ -466,6 +495,33 @@ public partial class MainViewModel : INotifyPropertyChanged
         _logger.Error(ex.Message, ex);
         AnimationState = MeditationState.Error;
         StatusText = $"Ошибка: {ex.Message}";
+    }
+
+    private void OnEngineStatusChanged(object? sender, EngineStatusChangedEventArgs e)
+    {
+        _dispatcher.Post(() =>
+        {
+            // IsRunning — вычисляемое свойство: без явного уведомления кнопка
+            // остаётся «Включить обход», хотя движок уже запущен.
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning)));
+            RefreshCommandStates();
+
+            switch (e.Status)
+            {
+                case EngineStatus.Running:
+                    StatusText = "Обход включён";
+                    break;
+                case EngineStatus.Stopped:
+                    AnimationState = MeditationState.Stopped;
+                    StatusText = "Движок остановлен";
+                    break;
+                case EngineStatus.Error:
+                    AnimationState = MeditationState.Error;
+                    if (!string.IsNullOrWhiteSpace(e.Detail))
+                        StatusText = "Ошибка движка: " + e.Detail;
+                    break;
+            }
+        });
     }
 
     private void OnOutputReceived(object? sender, string line)
