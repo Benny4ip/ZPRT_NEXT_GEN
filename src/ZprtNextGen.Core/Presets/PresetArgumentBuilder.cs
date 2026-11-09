@@ -51,6 +51,8 @@ public static class PresetArgumentBuilder
             .Replace(GameFilterTcpToken, tcp, StringComparison.Ordinal)
             .Replace(GameFilterUdpToken, udp, StringComparison.Ordinal);
 
+        EnsureReferencedListFiles(preset.Arguments, lists);
+
         if (result.Contains("{{", StringComparison.Ordinal))
         {
             var start = result.IndexOf("{{", StringComparison.Ordinal);
@@ -61,5 +63,62 @@ public static class PresetArgumentBuilder
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Создаёт пустые файлы списков, на которые ссылается пресет через <c>{{LISTS}}</c>, если их нет.
+    /// Некоторые дистрибутивы zapret ожидают наличие <c>*-user.txt</c> и т.п., иначе winws завершается с ошибкой.
+    /// </summary>
+    private static void EnsureReferencedListFiles(string rawArguments, string listsDirWithSeparator)
+    {
+        if (string.IsNullOrEmpty(rawArguments) || string.IsNullOrEmpty(listsDirWithSeparator))
+            return;
+
+        var listsDir = listsDirWithSeparator.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        try
+        {
+            Directory.CreateDirectory(listsDir);
+        }
+        catch
+        {
+            return;
+        }
+
+        // Ищем {{LISTS}}имяфайла (до пробела/кавычки/конца) в исходных аргументах.
+        var idx = 0;
+        while ((idx = rawArguments.IndexOf(ListsToken, idx, StringComparison.Ordinal)) >= 0)
+        {
+            idx += ListsToken.Length;
+            var end = idx;
+            while (end < rawArguments.Length)
+            {
+                var ch = rawArguments[end];
+                if (char.IsWhiteSpace(ch) || ch == '"' || ch == '\'')
+                    break;
+                end++;
+            }
+
+            if (end > idx)
+            {
+                var name = rawArguments[idx..end];
+                // Только простые имена файлов (без .. и абсолютных путей).
+                if (name.IndexOf("..", StringComparison.Ordinal) < 0 &&
+                    name.IndexOf(Path.DirectorySeparatorChar) < 0 &&
+                    name.IndexOf(Path.AltDirectorySeparatorChar) < 0 &&
+                    name.IndexOf(':') < 0)
+                {
+                    var full = Path.Combine(listsDir, name);
+                    try
+                    {
+                        if (!File.Exists(full))
+                            File.WriteAllText(full, string.Empty);
+                    }
+                    catch
+                    {
+                        // Лучшая попытка: отсутствие прав/блокировка не должны ломать сборку аргументов.
+                    }
+                }
+            }
+        }
     }
 }
