@@ -13,7 +13,7 @@
 ## Быстрые команды
 
 ```powershell
-# сборка и тесты (81 тест: 24 App + 57 Core)
+# сборка и тесты (121 тест: 29 App + 92 Core)
 dotnet test -c Release
 
 # portable-сборка на Рабочий стол (сначала закрыть запущенный ZprtNextGen!)
@@ -33,16 +33,19 @@ tools\Import-Presets.ps1 -Engine <путь-к-движку> -Out presets\presets
 
 | Задача | Файлы |
 |---|---|
-| Главное окно, кнопка, настройки | `src/ZprtNextGen.App/MainWindow.xaml` (+ `.xaml.cs`) |
-| Логика запуска/остановки, статусы, связь | `src/ZprtNextGen.App/ViewModels/MainViewModel.cs` |
+| Главное окно, кнопка обхода, шестёрка настроек | `src/ZprtNextGen.App/MainWindow.xaml` (+ `.xaml.cs`) |
+| Логика запуска/остановки, статусы, связь, обновления, тест пресетов | `src/ZprtNextGen.App/ViewModels/MainViewModel.cs` |
 | Внешний вид: цвета, кнопки, переключатели, Expander | `src/ZprtNextGen.App/Resources/Brand.xaml`, `Theme.xaml` |
-| Блок состояния (пульс) | `src/ZprtNextGen.App/Controls/MeditationView.xaml` (+ `.xaml.cs`) |
+| Блок состояния (пульс, кольцо прогресса, мерцание) | `src/ZprtNextGen.App/Controls/MeditationView.xaml` (+ `.xaml.cs`) |
+| Прогресс кольца по состоянию | `src/ZprtNextGen.Core/Presentation/MeditationProgress.cs` |
 | Выбор пресетов | `src/ZprtNextGen.App/Controls/PresetSelector.xaml` |
-| Окно «О программе» | `src/ZprtNextGen.App/AboutWindow.xaml` (+ `.xaml.cs`) |
+| Отдельное окно настроек | `src/ZprtNextGen.App/SettingsWindow.xaml` (+ `.xaml.cs`) |
+| Окно «О программе» (включая Telegram-ссылку) | `src/ZprtNextGen.App/AboutWindow.xaml` (+ `.xaml.cs`) |
 | Процесс `winws`, чужие экземпляры | `src/ZprtNextGen.Core/Process/EngineProcessManager.cs` |
 | Пресеты и аргументы `winws` | `src/ZprtNextGen.Core/Presets/*` |
 | Настройки пользователя | `src/ZprtNextGen.Core/Settings/*` |
 | Состояние анимации по статусу/связи | `src/ZprtNextGen.Core/Presentation/AnimationStateResolver.cs` |
+| Версии, релизы GitHub, обновление движка и программы | `src/ZprtNextGen.Core/Updates/*` |
 | Тесты | `tests/ZprtNextGen.App.Tests`, `tests/ZprtNextGen.Core.Tests` |
 
 ## Инварианты и грабли

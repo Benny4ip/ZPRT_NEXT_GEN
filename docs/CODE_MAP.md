@@ -10,18 +10,19 @@ ZprtNextGen.App (WPF, net10.0-windows)
   ├── MainWindow / AboutWindow            разметка и code-behind
   ├── Controls/                           MeditationView, PresetSelector
   ├── ViewModels/                         MainViewModel и команды
-  ├── Services/                           трей, единственный экземпляр, диспетчер UI
+  ├── Services/                           трей, единственный экземпляр, диспетчер UI, тёмный заголовок
   ├── Converters/                         XAML-конвертеры
   └── Resources/                          Brand.xaml (палитра), Theme.xaml (стили)
 
 ZprtNextGen.Core (net10.0, без WPF)
-  ├── Presets/                            каталог, импорт, аргументы winws
+  ├── Presets/                            каталог, импорт, аргументы winws, тестер пресетов
   ├── Process/                            жизненный цикл winws
   ├── Diagnostics/                        проверка доступности сервисов
-  ├── Presentation/                       состояние индикатора (MeditationState)
+  ├── Presentation/                       состояние индикатора (MeditationState, MeditationProgress)
   ├── Settings/                           settings.json
   ├── Startup/                            автозапуск через schtasks
-  └── Logging/                            файловый журнал
+  ├── Logging/                            файловый журнал
+  └── Updates/                            версии, GitHub Releases, скачивание, обновление движка и программы
 ```
 
 Зависимость односторонняя: `App → Core`. В `Core` нет ссылок на WPF/WinForms.
@@ -61,6 +62,12 @@ ZprtNextGen.Core (net10.0, без WPF)
 | `AppLogger` | Журнал только при ошибках, `%APPDATA%\ZPRT_NEXT_GEN\logs` |
 | `AsyncRelayCommand` | Команда с защитой от повторного запуска |
 | `IUiDispatcher` / `WpfDispatcher` | Маршалинг событий движка в UI-поток |
+| `MaintenanceDependencies` | Сервисы обслуживания: клиент релизов, апдейтеры движка и программы, тестер пресетов, версия, путь к каталогу |
+| `EngineUpdater` / `AppUpdater` | Обновление движка (с бэкапом и откатом) и самой программы (скрипт перезапуска после выхода) |
+| `PresetTester` | Последовательное тестирование пресетов: старт → пауза → проверка связи → остановка |
+| `ReleaseInfo` / `GitHubReleaseClient` | Релиз GitHub и получение последнего релиза через api.github.com |
+| `VersionComparer` | Сравнение семантических версий (с префиксом v) |
+| `MeditationProgress` | Заполнение кольца-прогресса индикатора по состоянию (0 / 0.85 / 1 / 0.5) |
 
 ## Рецепты изменений
 
@@ -84,6 +91,16 @@ ZprtNextGen.Core (net10.0, без WPF)
 Цели задаются в `ConnectivityService.CreateDefault()` (`ConnectivityTarget`).
 Правило «связь подтверждена» — в `ConnectivityReport.IsConnected`, тесты — в
 `tests/ZprtNextGen.Core.Tests/Diagnostics/ConnectivityServiceTests.cs`.
+
+### Обновить движок / программу
+1. `GitHubReleaseClient.CreateDefault().GetLatestAsync(repository)` — последний релиз на GitHub.
+2. `VersionComparer.IsNewer(tag, current)` — нужно ли обновление.
+3. Движок: `EngineUpdater.UpdateAsync(...)` — скачать `.zip`, проверить обязательные файлы,
+   остановить движок, переместить старую папку в бэкап, скопировать новую, переимпортировать
+   пресеты (`PresetCatalogWriter`); при ошибке — откат на бэкап.
+4. Программу: `AppUpdater.PrepareAsync(...)` — извлечь `ZprtNextGen.exe`, составить `.cmd`-скрипт,
+   который после `Application.Current.Shutdown()` подождёт завершения процесса, заменит `.exe`
+   и запустит новую версию.
 
 ### Изменить индикатор состояния
 `MeditationView.xaml`: раскадровки `StoppedStoryboard`, `ConnectingStoryboard`,

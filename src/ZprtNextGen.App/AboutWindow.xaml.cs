@@ -34,6 +34,9 @@ public partial class AboutWindow : Window
     private void OnZapret(object sender, RoutedEventArgs e) =>
         OpenLink("https://github.com/bol-van/zapret");
 
+    private void OnTelegram(object sender, RoutedEventArgs e) =>
+        OpenLink("https://t.me/benny_4ip");
+
     private static void OpenLink(string url)
     {
         try
