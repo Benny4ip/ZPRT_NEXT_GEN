@@ -194,38 +194,68 @@ public partial class MeditationView : UserControl
         PulseShimmer.Opacity = 0;
     }
 
+    /// <summary>Геометрия золотой дуги-кольца для тестирования (и привязки в XAML).</summary>
+    public Geometry? ArcGeometry { get; private set; }
+
     /// <summary>Пересчитывает геометрию золотой дуги-кольца по текущему <see cref="Progress"/>.</summary>
     private void UpdateProgressArc()
     {
-        var progress = Math.Clamp(Progress, 0.0, 1.0);
+        ArcGeometry = CreateProgressArcGeometry(Progress);
+        ProgressArc.Data = ArcGeometry;
+    }
+
+    /// <summary>
+    /// Строит геометрию золотой дуги-кольца по заполнению <c>0</c> … <c>1</c>.
+    /// При <c>1</c> рисуется полный круг из двух полуокружностей: одна дуга
+    /// с началом в конце не отображается WPF, поэтому круг делится пополам.
+    /// </summary>
+    public static Geometry? CreateProgressArcGeometry(double progress)
+    {
+        progress = Math.Clamp(progress, 0.0, 1.0);
+        if (progress <= 0.0)
+            return null;
+
         var centerX = 140.0;
         var centerY = 140.0;
         var radius = 96.0;
         var start = new System.Windows.Point(centerX, centerY - radius); // верх окружности (12 часов)
 
-        if (progress <= 0.0)
+        var figure = new PathFigure { StartPoint = start, IsClosed = false };
+
+        if (progress >= 1.0)
         {
-            ProgressArc.Data = null;
-            return;
+            var bottom = new System.Windows.Point(centerX, centerY + radius);
+            figure.Segments.Add(new ArcSegment
+            {
+                Point = bottom,
+                Size = new System.Windows.Size(radius, radius),
+                RotationAngle = 0,
+                IsLargeArc = true,
+                SweepDirection = SweepDirection.Clockwise,
+            });
+            figure.Segments.Add(new ArcSegment
+            {
+                Point = start,
+                Size = new System.Windows.Size(radius, radius),
+                RotationAngle = 0,
+                IsLargeArc = true,
+                SweepDirection = SweepDirection.Clockwise,
+            });
+        }
+        else
+        {
+            var radians = progress * 2.0 * Math.PI;
+            var end = new System.Windows.Point(centerX + radius * Math.Sin(radians), centerY - radius * Math.Cos(radians));
+            figure.Segments.Add(new ArcSegment
+            {
+                Point = end,
+                Size = new System.Windows.Size(radius, radius),
+                RotationAngle = 0,
+                IsLargeArc = progress >= 0.5,
+                SweepDirection = SweepDirection.Clockwise,
+            });
         }
 
-        var radians = progress * 2.0 * Math.PI;
-        var end = new System.Windows.Point(centerX + radius * Math.Sin(radians), centerY - radius * Math.Cos(radians));
-
-        var figure = new PathFigure
-        {
-            StartPoint = start,
-            IsClosed = false,
-        };
-        figure.Segments.Add(new ArcSegment
-        {
-            Point = end,
-            Size = new System.Windows.Size(radius, radius),
-            RotationAngle = 0,
-            IsLargeArc = progress >= 0.5,
-            SweepDirection = SweepDirection.Clockwise,
-        });
-
-        ProgressArc.Data = new PathGeometry { Figures = { figure } };
+        return new PathGeometry { Figures = { figure } };
     }
 }

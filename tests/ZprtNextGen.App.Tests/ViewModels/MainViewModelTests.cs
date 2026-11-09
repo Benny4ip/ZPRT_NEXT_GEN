@@ -466,6 +466,29 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task UpdateAppAsync_NewerRelease_LaunchesUpdaterBeforeRestart()
+    {
+        var gitHub = new FakeGitHubReleaseClient
+        {
+            Releases = { ["Benny4ip/ZPRT_NEXT_GEN"] = new ReleaseInfo("0.2.0", "0.2.0", null, []) }
+        };
+        var updater = new FakeAppUpdater();
+        var deps = BuildDependencies();
+        var (vm, _, _, _, _, _) = CreateVm(deps, new MaintenanceDependencies(
+            gitHub, new FakeEngineUpdater(), updater, new FakePresetTester(), "0.1.0", @"C:\P\presets.json"));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        bool restarted = false;
+        vm.RestartRequested += (_, _) => restarted = true;
+
+        await vm.UpdateAppAsync();
+
+        Assert.True(restarted, "приложение должно запросить перезапуск");
+        Assert.True(updater.Launched, "скрипт обновления должен быть запущен");
+        Assert.Same(updater.Plan, updater.LaunchedPlan);
+    }
+
+    [Fact]
     public void OpenLogsCommand_MissingDirectory_SetsErrorStatus()
     {
         var missingDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

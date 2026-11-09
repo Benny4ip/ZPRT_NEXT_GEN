@@ -741,8 +741,26 @@ public partial class MainViewModel : INotifyPropertyChanged
 
             var plan = await _maintenance.AppUpdater.PrepareAsync(
                 release, AppContext.BaseDirectory, null, CancellationToken.None);
-            UpdateStatusText = $"Обновление программы до v{release.Tag} подготовлено. Перезапуск…";
-            RestartRequested?.Invoke(this, EventArgs.Empty);
+
+            // Сначала запускаем скрипт: он дождётся выхода этого процесса,
+            // заменит .exe и запустит новую версию.
+            bool launched = false;
+            try
+            {
+                _maintenance.AppUpdater.Launch(plan);
+                launched = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Не удалось запустить скрипт обновления программы: {ex}", ex);
+                UpdateStatusText = "Ошибка запуска обновления программы: " + ex.Message;
+            }
+
+            if (launched)
+            {
+                UpdateStatusText = $"Обновление программы до v{release.Tag} подготовлено. Перезапуск…";
+                RestartRequested?.Invoke(this, EventArgs.Empty);
+            }
         }
         catch (Exception ex)
         {
