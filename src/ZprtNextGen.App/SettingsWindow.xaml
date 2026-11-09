@@ -13,6 +13,7 @@
         Style="{StaticResource DarkWindow}">
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <conv:BoolToBrushConverter x:Key="BoolToBrushConverter" />
     </Window.Resources>
 
     <ScrollViewer Margin="16" Style="{StaticResource DarkScrollViewer}" VerticalScrollBarVisibility="Auto">
@@ -62,27 +63,35 @@
                 <StackPanel Margin="16">
                     <TextBlock Text="Поведение" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"
                                Margin="0,0,0,12" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Автозапуск вместе с системой" Foreground="{StaticResource Brush.Text}"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <ToggleButton Style="{StaticResource ToggleSwitch}"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="300" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Автозапуск вместе с системой"
+                                   Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <ToggleButton Grid.Row="0" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
                                       IsChecked="{Binding IsAutostartEnabled, Mode=TwoWay}"
-                                      VerticalAlignment="Center" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Сворачивать в трей вместо закрытия" Foreground="{StaticResource Brush.Text}"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <ToggleButton Style="{StaticResource ToggleSwitch}"
+                                      VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Сворачивать в трей вместо закрытия"
+                                   Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <ToggleButton Grid.Row="1" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
                                       IsChecked="{Binding MinimizeToTray, Mode=TwoWay}"
-                                      VerticalAlignment="Center" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Уменьшить анимацию" Foreground="{StaticResource Brush.Text}"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <ToggleButton Style="{StaticResource ToggleSwitch}"
+                                      VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Уменьшить анимацию"
+                                   Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <ToggleButton Grid.Row="2" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
                                       IsChecked="{Binding ReduceMotion, Mode=TwoWay}"
-                                      VerticalAlignment="Center" />
-                    </StackPanel>
+                                      VerticalAlignment="Center" Margin="0,0,10,0" />
+                    </Grid>
                 </StackPanel>
             </Border>
 
