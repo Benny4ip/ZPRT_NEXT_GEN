@@ -106,7 +106,8 @@
                 <SolidColorBrush x:Name="TrackColor" Color="#2A2A2A" />
               </Border.Background>
             </Border>
-            <Ellipse x:Name="Thumb" Width="20" Height="20" Fill="White">
+            <Ellipse x:Name="Thumb" Width="20" Height="20" Fill="White"
+                     HorizontalAlignment="Left" VerticalAlignment="Center">
               <Ellipse.RenderTransform>
                 <TranslateTransform x:Name="ThumbTransform" X="2" />
               </Ellipse.RenderTransform>

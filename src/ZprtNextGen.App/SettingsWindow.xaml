@@ -65,7 +65,7 @@
                                Margin="0,0,0,12" />
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="300" />
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
@@ -76,24 +76,27 @@
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Автозапуск вместе с системой"
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"
-                                   Margin="0,0,12,0" HorizontalAlignment="Stretch" />
+                                   Margin="0,8,12,8" HorizontalAlignment="Stretch" />
                         <ToggleButton Grid.Row="0" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
                                       IsChecked="{Binding IsAutostartEnabled, Mode=TwoWay}"
-                                      VerticalAlignment="Center" Margin="0,0,10,0" />
+                                      VerticalAlignment="Center" HorizontalAlignment="Right"
+                                      Margin="0,8,0,8" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Сворачивать в трей вместо закрытия"
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"
-                                   Margin="0,0,12,0" HorizontalAlignment="Stretch" />
+                                   Margin="0,8,12,8" HorizontalAlignment="Stretch" />
                         <ToggleButton Grid.Row="1" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
                                       IsChecked="{Binding MinimizeToTray, Mode=TwoWay}"
-                                      VerticalAlignment="Center" Margin="0,0,10,0" />
+                                      VerticalAlignment="Center" HorizontalAlignment="Right"
+                                      Margin="0,8,0,8" />
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Уменьшить анимацию"
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"
-                                   Margin="0,0,12,0" HorizontalAlignment="Stretch" />
+                                   Margin="0,8,12,8" HorizontalAlignment="Stretch" />
                         <ToggleButton Grid.Row="2" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
                                       IsChecked="{Binding ReduceMotion, Mode=TwoWay}"
-                                      VerticalAlignment="Center" Margin="0,0,10,0" />
+                                      VerticalAlignment="Center" HorizontalAlignment="Right"
+                                      Margin="0,8,0,8" />
                     </Grid>
                 </StackPanel>
             </Border>
