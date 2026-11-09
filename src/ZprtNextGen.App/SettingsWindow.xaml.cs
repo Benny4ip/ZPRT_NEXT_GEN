@@ -25,10 +25,9 @@ public partial class SettingsWindow : Window
         DarkTitleBar.Apply(this);
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        // Автопроверка обновления движка при открытии настроек.
-        await _vm.UpdateEngineAsync();
+        // Автопроверка движка выполняется при старте приложения (см. MainViewModel.InitializeAsync).
     }
 
     private async void OnBrowseEngine(object sender, RoutedEventArgs e)

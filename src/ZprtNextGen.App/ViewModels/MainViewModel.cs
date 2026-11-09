@@ -390,9 +390,9 @@ public partial class MainViewModel : INotifyPropertyChanged
                 StatusText = "Готов к запуску.";
             }
 
-            // Автопроверка обновлений движка при включении приложения.
+            // Автопроверка обновлений движка при включении приложения (автоустановка при наличии).
             if (_engine.IsValid)
-                _ = CheckUpdatesAsync();
+                _ = AutoUpdateEngineOnStartAsync();
         }
         catch (Exception ex)
         {
@@ -675,7 +675,7 @@ public partial class MainViewModel : INotifyPropertyChanged
             }
             else
             {
-                text += "Не удалось проверить движок: GitHub недоступен. ";
+                text += "Не удалось проверить движок: GitHub недоступен или релизы не найдены. ";
             }
 
             if (appLatest is not null)
@@ -687,7 +687,7 @@ public partial class MainViewModel : INotifyPropertyChanged
             }
             else
             {
-                text += "Не удалось проверить программу: GitHub недоступен.";
+                text += "Не удалось проверить программу: GitHub недоступен или релизы не найдены.";
             }
 
             UpdateStatusText = text.Trim();
@@ -704,7 +704,71 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Обновить движок (запрет) с GitHub с окном прогресса и автоустановкой.</summary>
+    /// <summary>Автопроверка и автоустановка обновления движка при старте (без окна, если обновлений нет/ошибка сети).</summary>
+    private async Task AutoUpdateEngineOnStartAsync()
+    {
+        if (_maintenance is null || !_engine.IsValid || _engine.EngineRoot is null)
+            return;
+        if (_engineProcess.Status == EngineStatus.Running)
+            return;
+
+        try
+        {
+            var release = await _maintenance.GitHub.GetLatestAsync(
+                "Flowseal/zapret-discord-youtube", CancellationToken.None);
+            if (release is null)
+                return; // Тихо: сеть/GitHub недоступны или релизы не найдены.
+
+            if (!VersionComparer.IsNewer(release.Tag, _catalog.EngineVersion))
+                return; // Уже актуально.
+
+            // Обновление доступно — показываем окно и устанавливаем автоматически.
+            EngineUpdateProgressWindow? progressWindow = null;
+            _dispatcher.Post(() =>
+            {
+                progressWindow = new EngineUpdateProgressWindow { Topmost = true };
+                progressWindow.Show();
+                progressWindow.SetStatus($"Найдено обновление v{release.Tag}. Установка…");
+            });
+            // Даём UI создать окно.
+            await Task.Delay(50);
+
+            try
+            {
+                var result = await _maintenance.EngineUpdater.UpdateAsync(
+                    release,
+                    _engine.EngineRoot,
+                    _maintenance.PresetsPath,
+                    () => _engineProcess.StopAsync(CancellationToken.None),
+                    new Progress<string>(msg => _dispatcher.Post(() => progressWindow?.SetStatus(msg))),
+                    CancellationToken.None);
+
+                var msg = result.Message
+                    ?? $"Движок обновлён до v{result.NewVersion} ({result.PresetCount} пресетов).";
+                _dispatcher.Post(() =>
+                {
+                    progressWindow?.SetStatus(msg);
+                    progressWindow?.Finish();
+                });
+                await ReloadCatalogAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex.Message, ex);
+                _dispatcher.Post(() =>
+                {
+                    progressWindow?.SetStatus("Ошибка обновления: " + ex.Message);
+                    progressWindow?.Finish(showGitHubButton: true);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Автопроверка обновления движка: " + ex.Message, ex);
+        }
+    }
+
+    /// <summary>Обновить движок (запрет) с GitHub — интерактивно, с окном прогресса.</summary>
     public async Task UpdateEngineAsync()
     {
         if (_maintenance is null || !_engine.IsValid || _engine.EngineRoot is null)
@@ -718,10 +782,7 @@ public partial class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        var progressWindow = new EngineUpdateProgressWindow
-        {
-            Topmost = true,
-        };
+        var progressWindow = new EngineUpdateProgressWindow { Topmost = true };
         progressWindow.Show();
 
         try
@@ -732,17 +793,15 @@ public partial class MainViewModel : INotifyPropertyChanged
                 "Flowseal/zapret-discord-youtube", CancellationToken.None);
             if (release is null)
             {
-                progressWindow.SetStatus("Не удалось проверить обновления: GitHub недоступен.");
-                await Task.Delay(2000);
-                progressWindow.Close();
+                progressWindow.SetStatus("Не удалось проверить обновления: GitHub недоступен или релизы не найдены.");
+                progressWindow.Finish(showGitHubButton: true);
                 return;
             }
 
             if (!VersionComparer.IsNewer(release.Tag, _catalog.EngineVersion))
             {
-                progressWindow.SetStatus($"Уже последняя версия (v{_catalog.EngineVersion}).");
-                await Task.Delay(2000);
-                progressWindow.Close();
+                progressWindow.SetStatus($"Уже последняя версия движка (v{_catalog.EngineVersion}).");
+                progressWindow.Finish();
                 return;
             }
 
@@ -753,19 +812,21 @@ public partial class MainViewModel : INotifyPropertyChanged
                 _engine.EngineRoot,
                 _maintenance.PresetsPath,
                 () => _engineProcess.StopAsync(CancellationToken.None),
-                new Progress<string>(msg => progressWindow.SetStatus(msg)),
+                new Progress<string>(msg => _dispatcher.Post(() => progressWindow.SetStatus(msg))),
                 CancellationToken.None);
 
-            progressWindow.Close();
-
-            UpdateStatusText = result.Message
+            var msg = result.Message
                 ?? $"Движок обновлён до v{result.NewVersion} ({result.PresetCount} пресетов).";
+            progressWindow.SetStatus(msg);
+            progressWindow.Finish();
+            UpdateStatusText = msg;
             await ReloadCatalogAsync();
         }
         catch (Exception ex)
         {
-            try { progressWindow.Close(); } catch { }
             _logger.Error(ex.Message, ex);
+            progressWindow.SetStatus("Ошибка обновления движка: " + ex.Message);
+            progressWindow.Finish(showGitHubButton: true);
             UpdateStatusText = "Ошибка обновления движка: " + ex.Message;
         }
     }
@@ -902,6 +963,11 @@ public partial class MainViewModel : INotifyPropertyChanged
         if (preset is not null)
         {
             SelectedPreset = preset;
+            PresetTestStatus = $"Применён обход: {preset.Name}";
+        }
+        else
+        {
+            PresetTestStatus = $"Не удалось найти обход: {presetId}";
         }
     }
 
