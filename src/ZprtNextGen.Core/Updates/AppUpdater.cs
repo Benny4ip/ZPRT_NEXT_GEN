@@ -1,0 +1,99 @@
+using System.Diagnostics;
+using System.IO.Compression;
+
+namespace ZprtNextGen.Core.Updates;
+
+/// <summary>План обновления самой программы: скрипт-перезапуск + извлечённый новый файл.</summary>
+public record AppUpdatePlan(string ScriptPath, string NewExecutablePath, string TargetExecutablePath);
+
+/// <summary>Обновление портабельной программы: скачать zip, подготовить скрипт перезапуска.</summary>
+public interface IAppUpdater
+{
+    /// <summary>Скачать релиз, извлечь <c>ZprtNextGen.exe</c> и составить скрипт, который после выхода
+    /// текущего процесса заменит исполняемый файл и запустит новую версию.</summary>
+    Task<AppUpdatePlan> PrepareAsync(ReleaseInfo release, string appDirectory,
+        IProgress<string>? progress, CancellationToken ct);
+
+    /// <summary>Запустить скрипт обновления (обязательно после завершения текущего процесса).</summary>
+    void Launch(AppUpdatePlan plan);
+}
+
+/// <summary>Реализация <see cref="IAppUpdater"/>.</summary>
+public sealed class AppUpdater : IAppUpdater
+{
+    private readonly IFileDownloader _downloader;
+
+    public AppUpdater(IFileDownloader downloader)
+    {
+        _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
+    }
+
+    /// <summary>Сформировать .cmd-скрипт: дождаться завершения процесса <c>pid</c>, заменить
+    /// <c>targetExe</c> на <c>newExe</c>, запустить программу и удалить временные файлы.</summary>
+    public static string CreateScript(int pid, string newExe, string targetExe, string tempDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(newExe);
+        ArgumentNullException.ThrowIfNull(targetExe);
+        ArgumentNullException.ThrowIfNull(tempDirectory);
+
+        Directory.CreateDirectory(tempDirectory);
+        var script = Path.Combine(tempDirectory, $"ZPRT_Update_{pid}.cmd");
+
+        var lines = new[]
+        {
+            "@echo off",
+            "setlocal",
+            ":wait",
+            $"tasklist /FI \"PID eq {pid}\" | findstr \"{pid}\" >nul",
+            $"if not errorlevel 1 goto wait",
+            $"move /Y \"{newExe}\" \"{targetExe}\"",
+            $"start \"\" \"{targetExe}\"",
+            $"rd /s /q \"{tempDirectory}\"",
+            "del %0",
+        };
+        File.WriteAllText(script, string.Join(Environment.NewLine, lines) + Environment.NewLine);
+        return script;
+    }
+
+    public void Launch(AppUpdatePlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        System.Diagnostics.Process.Start(new ProcessStartInfo(plan.ScriptPath) { UseShellExecute = true });
+    }
+
+    public async Task<AppUpdatePlan> PrepareAsync(ReleaseInfo release, string appDirectory,
+        IProgress<string>? progress, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(release);
+        ArgumentException.ThrowIfNullOrWhiteSpace(appDirectory);
+
+        var zipAsset = release.FindZip()
+            ?? throw new InvalidDataException("В релизе программы не найден .zip-ассет для скачивания.");
+
+        var tempZip = Path.GetTempFileName();
+        try
+        {
+            progress?.Report("Скачивание программы...");
+            await _downloader.DownloadAsync(new Uri(zipAsset.DownloadUrl), tempZip, null, ct);
+
+            // Распакованные файлы хранятся до выполнения скрипта обновления (скрипт их удалит).
+            var tempExtract = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            ZipFile.ExtractToDirectory(tempZip, tempExtract);
+
+            var newExe = Directory.GetFiles(tempExtract, "ZprtNextGen.exe", SearchOption.AllDirectories)
+                .FirstOrDefault()
+                ?? throw new InvalidDataException("В архиве программы не найден ZprtNextGen.exe.");
+
+            var targetExe = Path.Combine(appDirectory, "ZprtNextGen.exe");
+            var script = CreateScript(Environment.ProcessId, newExe, targetExe, tempExtract);
+
+            progress?.Report("Готово к перезапуску.");
+            return new AppUpdatePlan(script, newExe, targetExe);
+        }
+        finally
+        {
+            if (File.Exists(tempZip))
+                File.Delete(tempZip);
+        }
+    }
+}
