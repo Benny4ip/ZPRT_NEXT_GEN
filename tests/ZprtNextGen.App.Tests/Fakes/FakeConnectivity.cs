@@ -15,13 +15,22 @@ public sealed class FakeConnectivity : IConnectivityService
         });
 
     public int CheckCalls { get; private set; }
+    public string? LastTargetId { get; private set; }
 
     /// <summary>Если задан, проверка связи «висит» до завершения этого источника (для тестов гонок).</summary>
     public TaskCompletionSource<ConnectivityReport>? Gate { get; set; }
 
-    public Task<ConnectivityReport> CheckAsync(CancellationToken ct)
+    public Task<ConnectivityReport> CheckAsync(CancellationToken ct, string? targetId = null)
     {
         CheckCalls++;
-        return Gate is not null ? Gate.Task : Task.FromResult(Report);
+        LastTargetId = targetId;
+        if (Gate is not null)
+            return Gate.Task;
+
+        var results = string.IsNullOrEmpty(targetId)
+            ? Report.Results
+            : Report.Results.Where(r => r.Target.Id.Equals(targetId, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        return Task.FromResult(new ConnectivityReport(results));
     }
 }

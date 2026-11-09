@@ -11,7 +11,7 @@ public sealed class FakeConnectivity : IConnectivityService
         new[] { new ConnectivityResult(new ConnectivityTarget("p", "Primary", "https://example.com", true), true, 10, null) });
     public int CheckCalls;
 
-    public Task<ConnectivityReport> CheckAsync(CancellationToken ct)
+    public Task<ConnectivityReport> CheckAsync(CancellationToken ct, string? targetId = null)
     {
         CheckCalls++;
         return Task.FromResult(Report);

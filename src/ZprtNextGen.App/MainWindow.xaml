@@ -73,10 +73,10 @@
                                 SelectedPreset="{Binding SelectedPreset, Mode=TwoWay}"
                                 SelectCommand="{Binding SelectPresetCommand}" />
             <Button Grid.Column="1" Content="&#x2699;"
-                    FontFamily="Segoe UI Symbol" FontSize="20"
+                    FontFamily="Segoe UI Symbol" FontSize="28"
                     Style="{StaticResource IconButton}"
                     Click="OnSettings"
-                    VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Настройки" />
+                    VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="Настройки" />
         </Grid>
 
         <!-- Связь и лог. -->
@@ -114,6 +114,7 @@
                                                        Margin="8,0,0,0" VerticalAlignment="Center" />
                                             <Button Grid.Column="3" Content="Проверить связь"
                                                     Command="{Binding TestConnectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding TargetId}"
                                                     Style="{StaticResource SecondaryButton}" FontSize="11" Padding="10,4"
                                                     Margin="12,0,0,0" MinWidth="110" VerticalAlignment="Center">
                                                 <Button.ToolTip>

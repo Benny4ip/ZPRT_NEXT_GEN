@@ -25,6 +25,12 @@ public partial class SettingsWindow : Window
         DarkTitleBar.Apply(this);
     }
 
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        // Автопроверка обновления движка при открытии настроек.
+        await _vm.UpdateEngineAsync();
+    }
+
     private async void OnBrowseEngine(object sender, RoutedEventArgs e)
     {
         var dialog = new System.Windows.Forms.FolderBrowserDialog

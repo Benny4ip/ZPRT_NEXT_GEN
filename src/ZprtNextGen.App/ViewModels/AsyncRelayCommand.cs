@@ -9,14 +9,14 @@ namespace ZprtNextGen.App.ViewModels;
 /// <summary>Команда WPF с асинхронным выполнением и отслеживанием занятости.</summary>
 public class AsyncRelayCommand : ICommand
 {
-    private readonly Func<Task> _execute;
+    private readonly Func<object?, Task> _execute;
     private readonly Func<bool>? _canExecute;
     private bool _isRunning;
 
     /// <summary>Создать команду.</summary>
-    /// <param name="execute">Асинхронное действие выполнения.</param>
+    /// <param name="execute">Асинхронное действие выполнения (получает параметр команды).</param>
     /// <param name="canExecute">Проверка возможности выполнения (может быть <c>null</c>).</param>
-    public AsyncRelayCommand(Func<Task> execute, Func<bool>? canExecute = null)
+    public AsyncRelayCommand(Func<object?, Task> execute, Func<bool>? canExecute = null)
     {
         _execute = execute ?? throw new ArgumentNullException(nameof(execute));
         _canExecute = canExecute;
@@ -41,7 +41,7 @@ public class AsyncRelayCommand : ICommand
         {
             _isRunning = true;
             RaiseCanExecuteChanged();
-            await _execute();
+            await _execute(parameter);
         }
         finally
         {

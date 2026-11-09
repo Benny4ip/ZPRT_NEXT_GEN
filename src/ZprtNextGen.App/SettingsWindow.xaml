@@ -10,7 +10,8 @@
         Width="660" Height="760"
         MinWidth="640" MinHeight="560"
         WindowStartupLocation="CenterOwner"
-        Style="{StaticResource DarkWindow}">
+        Style="{StaticResource DarkWindow}"
+        Loaded="OnLoaded">
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <conv:BoolToBrushConverter x:Key="BoolToBrushConverter" />
@@ -169,12 +170,19 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{StaticResource Brush.Text}" />
                                         <TextBlock Grid.Column="1" Text="{Binding StatusText}"
                                                    Foreground="{Binding Success, Converter={StaticResource BoolToBrushConverter}}" />
                                         <TextBlock Grid.Column="2" Text="{Binding ElapsedMs, StringFormat='{}{0} мс'}"
                                                    Foreground="{StaticResource Brush.TextMuted}" FontSize="11" Margin="8,0,0,0" />
+                                        <Button Grid.Column="3" Content="Применить"
+                                                Command="{Binding ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding PresetId}"
+                                                Style="{StaticResource SecondaryButton}" FontSize="10" Padding="6,2"
+                                                Margin="8,0,0,0" MinWidth="70"
+                                                Visibility="{Binding Success, Converter={StaticResource BoolToVisibilityConverter}}" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

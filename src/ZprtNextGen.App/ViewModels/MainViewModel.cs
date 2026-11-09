@@ -77,6 +77,7 @@ public partial class MainViewModel : INotifyPropertyChanged
     private readonly AsyncRelayCommand _updateAppCommand;
     private readonly AsyncRelayCommand _testAllPresetsCommand;
     private readonly RelayCommand _cancelPresetTestCommand;
+    private readonly RelayCommand _applyPresetCommand;
     private readonly MaintenanceDependencies? _maintenance;
 
     private AppSettings _settings = new();
@@ -119,18 +120,19 @@ public partial class MainViewModel : INotifyPropertyChanged
         _maintenance = Maintenance;
 
         _toggleCommand = new AsyncRelayCommand(
-            async () => await ToggleAsync(),
+            async _ => await ToggleAsync(),
             () => IsRunning || (!IsBusy && CanStart));
-        _testConnectionCommand = new AsyncRelayCommand(async () => await TestConnectionAsync(), () => !IsBusy);
+        _testConnectionCommand = new AsyncRelayCommand(async p => await TestConnectionAsync(p as string), () => !IsBusy);
         _selectPresetCommand = new RelayCommand(OnSelectPreset, _ => !IsBusy);
         _openLogsCommand = new RelayCommand(_ => OnOpenLogs());
-        _toggleAutostartCommand = new AsyncRelayCommand(async () => await ToggleAutostartAsync(), () => !IsBusy);
+        _toggleAutostartCommand = new AsyncRelayCommand(async _ => await ToggleAutostartAsync(), () => !IsBusy);
         _exitCommand = new RelayCommand(_ => Application.Current?.Shutdown(), _ => Application.Current is not null);
-        _checkUpdatesCommand = new AsyncRelayCommand(async () => await CheckUpdatesAsync(), () => !IsMaintenanceBusy);
-        _updateEngineCommand = new AsyncRelayCommand(async () => await UpdateEngineAsync(), () => !IsMaintenanceBusy && CanStart);
-        _updateAppCommand = new AsyncRelayCommand(async () => await UpdateAppAsync(), () => !IsMaintenanceBusy);
-        _testAllPresetsCommand = new AsyncRelayCommand(async () => await TestAllPresetsAsync(), () => !IsTestingPresets);
+        _checkUpdatesCommand = new AsyncRelayCommand(async _ => await CheckUpdatesAsync(), () => !IsMaintenanceBusy);
+        _updateEngineCommand = new AsyncRelayCommand(async _ => await UpdateEngineAsync(), () => !IsMaintenanceBusy && CanStart);
+        _updateAppCommand = new AsyncRelayCommand(async _ => await UpdateAppAsync(), () => !IsMaintenanceBusy);
+        _testAllPresetsCommand = new AsyncRelayCommand(async _ => await TestAllPresetsAsync(), () => !IsTestingPresets);
         _cancelPresetTestCommand = new RelayCommand(_ => CancelTest(), _ => IsTestingPresets);
+        _applyPresetCommand = new RelayCommand(p => ApplyPreset(p as string));
 
         _engineProcess.OutputReceived += OnOutputReceived;
         _engineProcess.StatusChanged += OnEngineStatusChanged;
@@ -165,6 +167,9 @@ public partial class MainViewModel : INotifyPropertyChanged
     public ICommand TestAllPresetsCommand => _testAllPresetsCommand;
 
     public ICommand CancelPresetTestCommand => _cancelPresetTestCommand;
+
+    /// <summary>Применить выбранный пресет по идентификатору (из результатов теста альтов).</summary>
+    public ICommand ApplyPresetCommand => _applyPresetCommand;
 
     /// <summary>Версия оболочки (из <see cref="MaintenanceDependencies.AppVersion"/>).</summary>
     public string AppVersion => _maintenance?.AppVersion ?? string.Empty;
@@ -469,18 +474,50 @@ public partial class MainViewModel : INotifyPropertyChanged
     }
 
     /// <inheritdoc cref="TestConnectionAsync"/>
-    public async Task TestConnectionAsync()
+    public async Task TestConnectionAsync(string? targetId = null)
     {
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            var report = await _connectivity.CheckAsync(cts.Token);
+            var report = await _connectivity.CheckAsync(cts.Token, targetId);
 
             _dispatcher.Post(() =>
             {
+                if (targetId is not null)
+                {
+                    // Перепроверяем только одну цель: обновляем её строку, остальные не трогаем.
+                    var result = report.Results.FirstOrDefault();
+                    if (result is not null)
+                    {
+                        var existing = ConnectivityRows.FirstOrDefault(
+                            r => r.TargetId.Equals(result.Target.Id, StringComparison.OrdinalIgnoreCase));
+                        if (existing is not null)
+                        {
+                            existing.Success = result.Success;
+                            existing.ElapsedMs = result.ElapsedMs;
+                            existing.Error = result.Error;
+                        }
+                        else
+                        {
+                            ConnectivityRows = ConnectivityRows.Append(new ConnectivityRowViewModel(
+                                result.Target.Id, result.Target.DisplayName, result.Success,
+                                result.ElapsedMs, result.Error)).ToList();
+                        }
+                    }
+
+                    if (_engineProcess.Status == EngineStatus.Running)
+                    {
+                        var single = new ConnectivityReport(report.Results);
+                        AnimationState = AnimationStateResolver.Resolve(_engineProcess.Status, single);
+                        StatusText = single.IsConnected ? "Связь подтверждена" : "Связь не подтверждена";
+                    }
+                    return;
+                }
+
                 ConnectivityRows = report.Results
                     .Select(result => new ConnectivityRowViewModel
                     {
+                        TargetId = result.Target.Id,
                         Name = result.Target.DisplayName,
                         Success = result.Success,
                         ElapsedMs = result.ElapsedMs,
@@ -658,7 +695,7 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Обновить движок (запрет) с GitHub.</summary>
+    /// <summary>Обновить движок (запрет) с GitHub с окном прогресса и автоустановкой.</summary>
     public async Task UpdateEngineAsync()
     {
         if (_maintenance is null || !_engine.IsValid || _engine.EngineRoot is null)
@@ -672,32 +709,45 @@ public partial class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        IsMaintenanceBusy = true;
+        var progressWindow = new EngineUpdateProgressWindow
+        {
+            Topmost = true,
+        };
+        progressWindow.Show();
+
         try
         {
-            UpdateProgress = 0;
+            progressWindow.SetStatus("Проверка обновлений…");
+
             var release = await _maintenance.GitHub.GetLatestAsync(
                 "Flowseal/zapret-discord-youtube", CancellationToken.None);
             if (release is null)
             {
-                UpdateStatusText = "Не удалось проверить обновления движка: GitHub недоступен.";
-                return;
-            }
-            if (!VersionComparer.IsNewer(release.Tag, _catalog.EngineVersion))
-            {
-                UpdateStatusText = $"Движок уже актуален (v{_catalog.EngineVersion}).";
+                progressWindow.SetStatus("Не удалось проверить обновления: GitHub недоступен.");
+                await Task.Delay(2000);
+                progressWindow.Close();
                 return;
             }
 
-            UpdateProgress = 30;
+            if (!VersionComparer.IsNewer(release.Tag, _catalog.EngineVersion))
+            {
+                progressWindow.SetStatus($"Уже последняя версия (v{_catalog.EngineVersion}).");
+                await Task.Delay(2000);
+                progressWindow.Close();
+                return;
+            }
+
+            progressWindow.SetStatus($"Скачивание и установка v{release.Tag}…");
+
             var result = await _maintenance.EngineUpdater.UpdateAsync(
                 release,
                 _engine.EngineRoot,
                 _maintenance.PresetsPath,
                 () => _engineProcess.StopAsync(CancellationToken.None),
-                null,
+                new Progress<string>(msg => progressWindow.SetStatus(msg)),
                 CancellationToken.None);
-            UpdateProgress = 100;
+
+            progressWindow.Close();
 
             UpdateStatusText = result.Message
                 ?? $"Движок обновлён до v{result.NewVersion} ({result.PresetCount} пресетов).";
@@ -705,13 +755,9 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            try { progressWindow.Close(); } catch { }
             _logger.Error(ex.Message, ex);
             UpdateStatusText = "Ошибка обновления движка: " + ex.Message;
-        }
-        finally
-        {
-            IsMaintenanceBusy = false;
-            UpdateProgress = 0;
         }
     }
 
@@ -836,6 +882,20 @@ public partial class MainViewModel : INotifyPropertyChanged
     /// <summary>Отменить текущее тестирование пресетов.</summary>
     private void CancelTest() => _testCts?.Cancel();
 
+    /// <summary>Применить пресет по идентификатору (выбрать его как активный).</summary>
+    private void ApplyPreset(string? presetId)
+    {
+        if (string.IsNullOrEmpty(presetId))
+            return;
+
+        var preset = _catalog.Presets
+            .FirstOrDefault(p => p.Id.Equals(presetId, StringComparison.OrdinalIgnoreCase));
+        if (preset is not null)
+        {
+            SelectedPreset = preset;
+        }
+    }
+
     /// <summary>Перезагрузить каталог пресетов с диска (сохраняя выбранный пресет).</summary>
     public async Task ReloadCatalogAsync()
     {
@@ -956,3 +1016,4 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
     }
 }
+

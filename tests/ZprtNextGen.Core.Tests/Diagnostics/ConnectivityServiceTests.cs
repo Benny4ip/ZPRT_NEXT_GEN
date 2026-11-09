@@ -171,6 +171,26 @@ public class ConnectivityServiceTests
     }
 
     [Fact]
+    public async Task CheckAsync_WithTargetId_ChecksOnlyThatTarget()
+    {
+        var handler = new FakeHandler();
+        foreach (var host in s_hosts)
+        {
+            handler.Add(host, HttpStatusCode.OK);
+        }
+
+        var service = CreateService(handler);
+        var report = await service.CheckAsync(CancellationToken.None, "youtube");
+
+        Assert.Single(report.Results);
+        Assert.Equal("youtube", report.Results[0].Target.Id);
+        Assert.True(report.Results[0].Success);
+        // 其他 цели не проверялись
+        Assert.Equal(1, handler.Starts.Count);
+        Assert.Equal("www.youtube.com", handler.Starts[0].Host);
+    }
+
+    [Fact]
     public async Task CheckAsync_RunsInParallel()
     {
         var handler = new FakeHandler();

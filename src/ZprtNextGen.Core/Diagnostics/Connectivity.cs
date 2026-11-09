@@ -16,7 +16,8 @@ public record ConnectivityReport(IReadOnlyList<ConnectivityResult> Results)
 /// <summary>Проверка доступности целей через HTTP.</summary>
 public interface IConnectivityService
 {
-    /// <summary>Проверить все цели.</summary>
+    /// <summary>Проверить все цели, или одну по <paramref name="targetId"/>.</summary>
     /// <param name="ct">Токен отмены.</param>
-    Task<ConnectivityReport> CheckAsync(CancellationToken ct);
+    /// <param name="targetId">Идентификатор цели, или <c>null</c>, чтобы проверить все.</param>
+    Task<ConnectivityReport> CheckAsync(CancellationToken ct, string? targetId = null);
 }

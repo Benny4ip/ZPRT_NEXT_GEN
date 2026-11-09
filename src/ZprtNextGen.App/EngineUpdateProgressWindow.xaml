@@ -1,0 +1,34 @@
+<Window x:Class="ZprtNextGen.App.EngineUpdateProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Обновление движка"
+        Width="440" Height="200"
+        MinWidth="440" MinHeight="200"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Style="{StaticResource DarkWindow}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Обновление запрета (движок)"
+                   FontSize="16" FontWeight="SemiBold"
+                   Foreground="{StaticResource Brush.Text}" Margin="0,0,0,16" />
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <TextBlock x:Name="StatusText" Text="Проверка обновлений…"
+                       Foreground="{StaticResource Brush.TextMuted}" FontSize="13"
+                       Margin="0,0,0,10" TextWrapping="Wrap" />
+            <ProgressBar x:Name="ProgressBar" Height="8" IsIndeterminate="True"
+                         Foreground="{StaticResource Brush.Enlightenment}" />
+        </StackPanel>
+
+        <Button Grid.Row="2" Content="Закрыть"
+                Click="OnClose"
+                Style="{StaticResource SecondaryButton}" MinWidth="100" Padding="10,4"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+    </Grid>
+</Window>

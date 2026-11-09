@@ -26,9 +26,13 @@ public sealed class ConnectivityService(HttpClient client) : IConnectivityServic
     }
 
     /// <inheritdoc/>
-    public async Task<ConnectivityReport> CheckAsync(CancellationToken ct)
+    public async Task<ConnectivityReport> CheckAsync(CancellationToken ct, string? targetId = null)
     {
-        var tasks = DefaultTargets
+        var targets = string.IsNullOrEmpty(targetId)
+            ? DefaultTargets
+            : DefaultTargets.Where(t => t.Id.Equals(targetId, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var tasks = targets
             .Select(target => CheckTargetAsync(target, ct))
             .ToList();
 
