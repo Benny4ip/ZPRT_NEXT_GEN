@@ -344,6 +344,7 @@
             <ToggleButton x:Name="ToggleButton"
                           Grid.ColumnSpan="2"
                           Background="{TemplateBinding Background}"
+                          Foreground="{TemplateBinding Foreground}"
                           BorderBrush="{TemplateBinding BorderBrush}"
                           BorderThickness="{TemplateBinding BorderThickness}"
                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
@@ -363,6 +364,7 @@
                       <ContentPresenter x:Name="ContentSite" Margin="6,4"
                                         Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ComboBox}}}"
                                         ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ComboBox}}}"
+                                        TextElement.Foreground="{TemplateBinding Foreground}"
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Center" />
                       <Path x:Name="Arrow" Grid.Column="1" Data="M0,0 4,4 8,0"
@@ -482,13 +484,18 @@
                   Padding="{TemplateBinding Padding}"
                   SnapsToDevicePixels="True">
             <DockPanel>
-              <ToggleButton x:Name="Header"
+              <ToggleButton x:Name="HeaderToggle"
                             DockPanel.Dock="Top"
                             Background="Transparent"
                             BorderThickness="0"
                             Foreground="{TemplateBinding Foreground}"
+                            FontWeight="SemiBold"
+                            FontSize="14"
                             Padding="0"
+                            Cursor="Hand"
                             HorizontalContentAlignment="Left"
+                            Content="{TemplateBinding Header}"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"
                             IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                 <ToggleButton.Template>
                   <ControlTemplate TargetType="ToggleButton">
@@ -501,25 +508,54 @@
                             Data="M0,0 4,4 8,0"
                             Fill="{TemplateBinding Foreground}"
                             Width="8" Height="8" Stretch="Uniform"
-                            Margin="0,0,8,0" VerticalAlignment="Center" />
+                            Margin="0,0,10,0" VerticalAlignment="Center"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Path.RenderTransform>
+                          <RotateTransform x:Name="ArrowRotate" Angle="0" />
+                        </Path.RenderTransform>
+                      </Path>
                       <ContentPresenter Grid.Column="1" Margin="{TemplateBinding Padding}"
                                         Content="{TemplateBinding Content}"
                                         ContentTemplate="{TemplateBinding ContentTemplate}"
                                         RecognizesAccessKey="True"
                                         VerticalAlignment="Center" />
                     </Grid>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsChecked" Value="True">
+                        <Trigger.EnterActions>
+                          <BeginStoryboard>
+                            <Storyboard>
+                              <DoubleAnimation Storyboard.TargetName="ArrowRotate" Storyboard.TargetProperty="Angle"
+                                               To="180" Duration="0:0:0.15" />
+                            </Storyboard>
+                          </BeginStoryboard>
+                        </Trigger.EnterActions>
+                        <Trigger.ExitActions>
+                          <BeginStoryboard>
+                            <Storyboard>
+                              <DoubleAnimation Storyboard.TargetName="ArrowRotate" Storyboard.TargetProperty="Angle"
+                                               To="0" Duration="0:0:0.15" />
+                            </Storyboard>
+                          </BeginStoryboard>
+                        </Trigger.ExitActions>
+                      </Trigger>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Arrow" Property="Fill" Value="{StaticResource Brush.AccentGlow}" />
+                      </Trigger>
+                    </ControlTemplate.Triggers>
                   </ControlTemplate>
                 </ToggleButton.Template>
               </ToggleButton>
               <ContentPresenter x:Name="ExpandSite"
                                 DockPanel.Dock="Bottom"
                                 Visibility="Collapsed"
+                                Margin="0,14,0,0"
                                 Content="{TemplateBinding Content}"
                                 ContentTemplate="{TemplateBinding ContentTemplate}" />
             </DockPanel>
           </Border>
           <ControlTemplate.Triggers>
-            <Trigger SourceName="Header" Property="IsChecked" Value="True">
+            <Trigger SourceName="HeaderToggle" Property="IsChecked" Value="True">
               <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
             </Trigger>
           </ControlTemplate.Triggers>

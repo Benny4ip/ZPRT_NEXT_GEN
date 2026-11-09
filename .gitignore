@@ -17,6 +17,10 @@ engine/
 *.user
 *_wpftmp.csproj
 
+# Generated code index and review screenshots
+.ai/
+.review/
+
 # OS files
 Thumbs.db
 desktop.ini

@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
 using ZprtNextGen.Core.Presentation;
 
@@ -91,30 +90,22 @@ public partial class MeditationView : UserControl
         }
     }
 
-    /// <summary>Статические значения при Reduce Motion: без зацикленных раскадровок, частиц и вращения.</summary>
+    /// <summary>Статические значения при Reduce Motion: без зацикленных раскадровок и свечения.</summary>
     private void ApplyReduceMotionStatic()
     {
-        LiftTransform.Y = -32;
         BreathTransform.Y = 0;
         ScaleTransform.ScaleX = 1;
         ScaleTransform.ScaleY = 1;
-        RaysRotate.Angle = 0;
-        RaysGroup.Opacity = 0.25;
-        HaloDiamond.Stroke = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xC6, 0x5C));
-        HaloDiamond.Opacity = 0.5;
-        AuraGlow.Opacity = 0.12;
         ErrorFlash.Opacity = 0;
 
-        for (int i = 1; i <= 12; i++)
-        {
-            if (FindName($"Particle{i:D2}") is FrameworkElement particle)
-            {
-                particle.Opacity = 0;
-                if (FindName($"Particle{i:D2}Transform") is TranslateTransform particleTransform)
-                {
-                    particleTransform.Y = 0;
-                }
-            }
-        }
+        bool connected = State == MeditationState.Connected;
+        bool active = connected || State == MeditationState.Connecting;
+
+        Glow.Opacity = connected ? 0.3 : 0.16;
+        PulseLine.Opacity = active ? 0.9 : 0.45;
+        PulseGlow.Opacity = connected ? 0.35 : 0;
+        AccentLayer.Opacity = connected ? 0.75 : 0;
+        EndDotLayer.Opacity = connected ? 1 : 0;
+        EndDotGlow.Opacity = connected ? 0.2 : 0;
     }
 }

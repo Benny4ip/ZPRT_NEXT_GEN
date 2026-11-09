@@ -8,7 +8,7 @@
         ResizeMode="NoResize"
         Style="{StaticResource DarkWindow}">
     <ScrollViewer Margin="20">
-        <StackPanel MaxWidth="460">
+        <StackPanel MaxWidth="460" Margin="0,0,10,0">
             <TextBlock Text="ZPRT NEXT GEN"
                        FontSize="26" FontWeight="Bold"
                        Foreground="{StaticResource Brush.Text}" />
@@ -36,6 +36,30 @@
                 <TextBlock Grid.Column="0" Text="Версия движка:"
                            Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" x:Name="EngineVersionText"
+                           Foreground="{StaticResource Brush.TextMuted}"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+            </Grid>
+
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Разработчик:"
+                           Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="Benny_4ip"
+                           Foreground="{StaticResource Brush.TextMuted}"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+            </Grid>
+
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Связь:"
+                           Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="Telegram — по всем вопросам"
                            Foreground="{StaticResource Brush.TextMuted}"
                            VerticalAlignment="Center" HorizontalAlignment="Right" />
             </Grid>

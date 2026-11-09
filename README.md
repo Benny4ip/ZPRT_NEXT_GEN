@@ -4,7 +4,7 @@
 
 Русскоязычная графическая оболочка для управления `winws.exe` из
 [`Flowseal/zapret-discord-youtube`](https://github.com/Flowseal/zapret-discord-youtube):
-пресеты, статус подключения, проверка связи и анимация «просветления» при подключении.
+пресеты, статус подключения, проверка связи и наглядный индикатор состояния при подключении.
 
 > Релиз собирается вручную (`workflow_dispatch`); автоматических релизов нет.
 
@@ -14,14 +14,14 @@
 
 ZPRT_NEXT_GEN — WPF-оболочка вокруг `winws.exe` (движок обхода блокировок из проекта zapret).
 Она запускает `winws.exe` с выбранным пресетом, следит за состоянием процесса, отображает
-статус подключения (включая анимацию «просветления» в состоянии Connected), проверяет
+статус подключения (включая индикатор состояния в режиме Connected), проверяет
 доступность Discord/YouTube, умеет свертываться в трей и добавляться в автозапуск
 через задание планировщика Windows.
 
 ## Возможности
 
 * Групповой выбор пресетов (Обычные / Fake TLS / Simple Fake / Экспериментальные).
-* Включение/выключение обхода одной кнопкой; отображение статуса движка и анимация состояния.
+* Включение/выключение обхода одной кнопкой; отображение статуса движка и индикатор состояния.
 * Проверка связи («Проверить связь») — доходность целевых ресурсов.
 * Сворачивание в трей с иконкой, окно «О программе», возврат из трея.
 * Автозапуск через задание планировщика (`schtasks`).
@@ -89,7 +89,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\Pack-Release.ps1 -Engi
 ZPRT_NEXT_GEN/
 ├── .github/workflows/      # CI: build (push/PR), release (workflow_dispatch, вручную)
 ├── assets/                 # иконка приложения (icon.ico, icon.svg)
-├── docs/                   # скриншот-заглушка (screenshot.png)
+├── docs/                   # CODE_MAP.md (архитектура), screenshot.png
 ├── licenses/               # лицензии сторонних компонентов
 ├── presets/                # presets.json — каталог пресетов winws
 ├── src/
@@ -99,13 +99,27 @@ ZPRT_NEXT_GEN/
 ├── tools/
 │   ├── Pack-Release.ps1    # упаковка релиза (PowerShell 5.1, UTF-8 с BOM)
 │   ├── Import-Presets.ps1  # импорт пресетов из zapret
+│   ├── Index-Code.ps1      # индекс типов и XAML-ключей → .ai/code-index.md
 │   └── ZprtNextGen.PresetTool/   # CLI-инструмент сборки presets.json
+├── AGENTS.md               # краткая карта для ИИ-агентов и разработчиков
 ├── LICENSE                 # MIT (оболочка)
 ├── THIRD-PARTY-NOTICES.md  # атрибуция upstream
 └── README.md
 ```
 
-`bin/`, `obj/`, `publish/`, `engine/`, `*.exe`, `*.dll`, `*.sys`, `*.zip` не попадают в git (см. `.gitignore`).
+`bin/`, `obj/`, `publish/`, `engine/`, `.ai/`, `*.exe`, `*.dll`, `*.sys`, `*.zip` не попадают в git (см. `.gitignore`).
+
+## Для разработчиков и ИИ-агентов
+
+Начните с [`AGENTS.md`](AGENTS.md) и [`docs/CODE_MAP.md`](docs/CODE_MAP.md).
+Перед работой с кодом полезно обновить индекс:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\Index-Code.ps1
+```
+
+Он создаёт `.ai/code-index.md` — список файлов, типов, методов, XAML-ключей и обработчиков
+с номерами строк. Это быстрее и точнее поиска по смыслу на проекте такого размера.
 
 ## Лицензия и атрибуция upstream
 

@@ -3,10 +3,9 @@
 using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Interop;
+using ZprtNextGen.App.Services;
 using ZprtNextGen.App.ViewModels;
 
 namespace ZprtNextGen.App;
@@ -14,11 +13,6 @@ namespace ZprtNextGen.App;
 /// <summary>Interaction logic for <see cref="MainWindow"/>.</summary>
 public partial class MainWindow : Window
 {
-    [DllImport("dwmapi.dll", ExactSpelling = true)]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
-
-    private const int DwmwaUseImmersiveDarkMode = 20;
-
     private readonly MainViewModel _viewModel;
     private bool _exiting = false;
 
@@ -36,17 +30,8 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
 
-        // Тёмная заголовок окна (DWMWA_USE_IMMERSIVE_DARK_MODE = 20). Лучшая попытка: ошибки игнорируются.
-        try
-        {
-            var handle = new WindowInteropHelper(this).Handle;
-            var value = 1;
-            DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref value, sizeof(int));
-        }
-        catch
-        {
-            // Игнорируем: стандартная заголовок остаётся светлой.
-        }
+        // Тёмный заголовок окна. Лучшая попытка: ошибки игнорируются.
+        DarkTitleBar.Apply(this);
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e) => await _viewModel.InitializeAsync();

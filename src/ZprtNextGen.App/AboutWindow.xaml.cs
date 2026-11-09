@@ -4,6 +4,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
+using ZprtNextGen.App.Services;
 
 namespace ZprtNextGen.App;
 
@@ -19,6 +20,12 @@ public partial class AboutWindow : Window
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         AppVersionText.Text = version?.ToString() ?? "неизвестно";
         EngineVersionText.Text = engineVersion ?? string.Empty;
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        DarkTitleBar.Apply(this);
     }
 
     private void OnZapretDiscordYoutube(object sender, RoutedEventArgs e) =>
