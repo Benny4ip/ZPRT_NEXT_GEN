@@ -31,7 +31,6 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <clr:MeditationView Grid.Column="0" Width="280" Height="280"
@@ -61,19 +60,24 @@
                            Foreground="{StaticResource Brush.TextMuted}" FontSize="12" Margin="0,16,0,0" />
             </StackPanel>
 
-            <Button Grid.Column="2" Content="&#x2699;"
-                    FontFamily="Segoe UI Symbol" FontSize="26"
-                    Style="{StaticResource IconButton}"
-                    Click="OnSettings"
-                    VerticalAlignment="Center" HorizontalAlignment="Right"
-                    Width="48" Height="48" Margin="16,0,20,0" ToolTip="Настройки" />
         </Grid>
 
-        <!-- Пресеты: сгруппированный селектор (Task 16). -->
-        <clr:PresetSelector Grid.Row="1" Margin="0,0,0,16"
-                            Groups="{Binding Groups}"
-                            SelectedPreset="{Binding SelectedPreset, Mode=TwoWay}"
-                            SelectCommand="{Binding SelectPresetCommand}" />
+        <!-- Пресеты: сгруппированный селектор + кнопка настроек рядом. -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <clr:PresetSelector Grid.Column="0"
+                                Groups="{Binding Groups}"
+                                SelectedPreset="{Binding SelectedPreset, Mode=TwoWay}"
+                                SelectCommand="{Binding SelectPresetCommand}" />
+            <Button Grid.Column="1" Content="&#x2699;"
+                    FontFamily="Segoe UI Symbol" FontSize="20"
+                    Style="{StaticResource IconButton}"
+                    Click="OnSettings"
+                    VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Настройки" />
+        </Grid>
 
         <!-- Связь и лог. -->
         <Grid Grid.Row="2">
