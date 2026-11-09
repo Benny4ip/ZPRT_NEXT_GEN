@@ -20,6 +20,7 @@ engine/
 # Generated code index and review screenshots
 .ai/
 .review/
+.superpowers/
 
 # OS files
 Thumbs.db

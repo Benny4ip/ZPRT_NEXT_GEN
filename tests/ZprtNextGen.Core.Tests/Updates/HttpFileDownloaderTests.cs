@@ -37,6 +37,12 @@ public class HttpFileDownloaderTests
 
         Assert.True(File.Exists(dest));
         Assert.Equal("hello-download", File.ReadAllText(dest));
+
+        // Progress<T> без контекста синхронизации вызывает колбэк в пуле потоков — подождём его.
+        for (var i = 0; i < 100 && reports.Count == 0; i++)
+            await Task.Delay(10);
+
+        Assert.NotEmpty(reports);
         Assert.InRange(reports.Last(), 99.0, 100.0);
         File.Delete(dest);
     }
