@@ -96,12 +96,7 @@ public sealed class EngineUpdater : IEngineUpdater
                 catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
                 {
                     // Откат: вернуть старый движок на место.
-                    if (backupRoot is not null && Directory.Exists(backupRoot))
-                    {
-                        TryDeleteDirectory(engineRoot);
-                        try { Directory.Move(backupRoot, engineRoot); } catch { /* лучшая попытка отката */ }
-                        backupRoot = null;
-                    }
+                    RestoreBackup(engineRoot, ref backupRoot);
                     throw new IOException(
                         "Не удалось обновить файлы движка (возможно, WinDivert/драйвер ещё используется). " +
                         "Закройте другие экземпляры запрета/winws и попробуйте снова. " + ex.Message, ex);
@@ -109,12 +104,7 @@ public sealed class EngineUpdater : IEngineUpdater
                 catch
                 {
                     // Откат: вернуть старый движок на место.
-                    if (backupRoot is not null && Directory.Exists(backupRoot))
-                    {
-                        TryDeleteDirectory(engineRoot);
-                        try { Directory.Move(backupRoot, engineRoot); } catch { }
-                        backupRoot = null;
-                    }
+                    RestoreBackup(engineRoot, ref backupRoot);
                     throw;
                 }
             }
@@ -190,6 +180,46 @@ public sealed class EngineUpdater : IEngineUpdater
             Directory.Delete(path, recursive: true);
         }
         catch { /* лучшая попытка */ }
+    }
+
+    private static void RestoreBackup(string engineRoot, ref string? backupRoot)
+    {
+        if (string.IsNullOrEmpty(backupRoot) || !Directory.Exists(backupRoot))
+            return;
+
+        try
+        {
+            // Убираем повреждённую/частичную папку движка, чтобы освободить целевой путь.
+            if (Directory.Exists(engineRoot))
+            {
+                var failed = engineRoot + ".failed." + DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss");
+                try
+                {
+                    Directory.Move(engineRoot, failed);
+                    TryDeleteDirectory(failed);
+                }
+                catch
+                {
+                    TryDeleteDirectory(engineRoot);
+                }
+            }
+
+            if (Directory.Exists(engineRoot))
+            {
+                // Не удалось освободить путь — копируем содержимое бэкапа поверх.
+                CopyDirectory(backupRoot, engineRoot);
+                TryDeleteDirectory(backupRoot);
+                backupRoot = null;
+                return;
+            }
+
+            Directory.Move(backupRoot, engineRoot);
+            backupRoot = null;
+        }
+        catch
+        {
+            // Лучшая попытка: бэкап оставляем на диске (backupRoot не обнуляем здесь намеренно? нет — оставим для диагностики).
+        }
     }
 
     private static void CopyDirectory(string source, string target)
