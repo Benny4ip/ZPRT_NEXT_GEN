@@ -16,12 +16,14 @@ public interface IAppLogger
 
 /// <summary>
 /// Пишет логи в дневной файл <c>app-YYYYMMDD.log</c> в указанной директории (UTF-8 без BOM).
-/// Потокобезопасен.
+/// Потокобезопасен. При ошибке записи в основную директорию пробует fallback рядом с приложением.
 /// </summary>
 public class AppLogger : IAppLogger
 {
     private readonly string _directory;
+    private readonly string _fallbackDirectory;
     private readonly object _lock = new();
+    private bool _useFallback;
 
     /// <summary>
     /// Создать логгер. Директория создаётся, если отсутствует.
@@ -32,20 +34,25 @@ public class AppLogger : IAppLogger
     {
         ArgumentNullException.ThrowIfNull(directory);
         _directory = directory;
+        _fallbackDirectory = Path.Combine(AppContext.BaseDirectory, "logs");
+        TryEnsureDirectory(_directory);
+    }
+
+    private static bool TryEnsureDirectory(string path)
+    {
         try
         {
-            Directory.CreateDirectory(directory);
+            Directory.CreateDirectory(path);
+            return true;
         }
-        catch (Exception ex)
+        catch
         {
-            // Если создать папку логов не удалось (нет прав, неверный путь),
-            // не умираем — логи просто не будут писаться.
-            Console.WriteLine($"Не удалось создать папку логов '{directory}': {ex.Message}");
+            return false;
         }
     }
 
-    private string LogFilePath =>
-        Path.Combine(_directory, $"app-{DateTime.Now:yyyyMMdd}.log");
+    private string LogFilePath(string directory) =>
+        Path.Combine(directory, $"app-{DateTime.Now:yyyyMMdd}.log");
 
     public void Info(string message)
     {
@@ -60,30 +67,39 @@ public class AppLogger : IAppLogger
     private void Write(string level, string message, Exception? exception)
     {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-        var line = $"{timestamp} [{level}] {message}";
-        var path = LogFilePath;
+        var text = $"{timestamp} [{level}] {message}{Environment.NewLine}";
+        if (exception is not null)
+        {
+            text += $"{exception.GetType().FullName}: {exception.Message}{Environment.NewLine}";
+            var stackTrace = exception.StackTrace;
+            if (!string.IsNullOrEmpty(stackTrace))
+            {
+                text += stackTrace;
+                if (!stackTrace.EndsWith(Environment.NewLine))
+                    text += Environment.NewLine;
+            }
+        }
 
         lock (_lock)
         {
-            try
+            // Если папку логов удалили/она недоступна — пробуем создать заново.
+            var primary = _useFallback ? _fallbackDirectory : _directory;
+            var secondary = _useFallback ? _directory : _fallbackDirectory;
+            foreach (var dir in new[] { primary, secondary })
             {
-                File.AppendAllText(path, line + Environment.NewLine, new UTF8Encoding(false));
-                if (exception is not null)
+                try
                 {
-                    File.AppendAllText(path, $"{exception.GetType().FullName}: {exception.Message}{Environment.NewLine}", new UTF8Encoding(false));
-                    var stackTrace = exception.StackTrace;
-                    if (!string.IsNullOrEmpty(stackTrace))
-                    {
-                        File.AppendAllText(path, stackTrace, new UTF8Encoding(false));
-                        if (!stackTrace.EndsWith(Environment.NewLine))
-                            File.AppendAllText(path, Environment.NewLine, new UTF8Encoding(false));
-                    }
+                    TryEnsureDirectory(dir);
+                    File.AppendAllText(LogFilePath(dir), text, new UTF8Encoding(false));
+                    _useFallback = !string.Equals(dir, _directory, StringComparison.OrdinalIgnoreCase);
+                    return;
+                }
+                catch
+                {
+                    // Пробуем следующий путь (fallback).
                 }
             }
-            catch
-            {
-                // Не можем записать лог — игнорируем, не удваиваем ошибку.
-            }
+            // Не можем записать лог — игнорируем, не удваиваем ошибку.
         }
     }
 }

@@ -54,15 +54,21 @@ public partial class App : Application
             return;
         }
 
-        // 3. Настройки.
+        // 3. Логгер (раньше, чтобы фиксировать ошибки старта и пересоздавать папку логов).
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var logger = new AppLogger(Path.Combine(appData, "ZPRT_NEXT_GEN", "logs"));
+        logger.Info($"Запуск ZPRT NEXT GEN v{typeof(App).Assembly.GetName().Version}, base='{AppContext.BaseDirectory}'.");
+
+        // 4. Настройки.
         var settingsStore = SettingsStore.CreateDefault();
         var settings = settingsStore.Load();
 
-        // 4. Каталог пресетов.
+        // 5. Каталог пресетов.
         var catalogPath = Path.Combine(AppContext.BaseDirectory, "presets", "presets.json");
         PresetCatalog catalog;
         if (!File.Exists(catalogPath))
         {
+            logger.Error($"Каталог пресетов не найден: {catalogPath}");
             MessageBox.Show($"Каталог пресетов не найден: {catalogPath}", "ZPRT NEXT GEN",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             catalog = new PresetCatalog(0, string.Empty, string.Empty, [], []);
@@ -72,10 +78,11 @@ public partial class App : Application
             catalog = PresetCatalogLoader.Load(catalogPath);
         }
 
-        // 5. Движок.
+        // 6. Движок.
         var engine = EngineLocator.Locate(settings.EnginePath, AppContext.BaseDirectory);
         if (!engine.IsValid)
         {
+            logger.Error($"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}. Искали от '{AppContext.BaseDirectory}'.");
             MessageBox.Show(
                 $"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}",
                 "ZPRT NEXT GEN",
@@ -83,12 +90,10 @@ public partial class App : Application
                 MessageBoxImage.Error);
         }
 
-        // 6. Сервисы.
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        // 7. Сервисы.
         var connectivity = ConnectivityService.CreateDefault();
         var engineProcess = new EngineProcessManager();
         var autostart = new ScheduledTaskAutostart(Environment.ProcessPath ?? string.Empty);
-        var logger = new AppLogger(Path.Combine(appData, "ZPRT_NEXT_GEN", "logs"));
         var dispatcher = new WpfDispatcher();
 
         // Глобальные обработчики необработанных исключений: вместо молчаливого вылета
