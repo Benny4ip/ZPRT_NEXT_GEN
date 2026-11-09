@@ -180,7 +180,7 @@
                                         <TextBlock Grid.Column="2" Text="{Binding ElapsedMs, StringFormat='{}{0} мс'}"
                                                    Foreground="{StaticResource Brush.TextMuted}" FontSize="11" Margin="8,0,0,0" />
                                         <Button Grid.Column="3" Content="Применить"
-                                                Command="{Binding ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Command="{Binding DataContext.ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding PresetId}"
                                                 Style="{StaticResource SecondaryButton}" FontSize="10" Padding="6,2"
                                                 Margin="8,0,0,0" MinWidth="70"
