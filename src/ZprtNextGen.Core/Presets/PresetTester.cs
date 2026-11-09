@@ -59,10 +59,19 @@ public sealed class PresetTester : IPresetTester
 
                 await Task.Delay(_startupDelay, ct);
 
-                var report = await _connectivity.CheckAsync(ct);
-                result = new PresetTestResult(
-                    preset.Id, preset.Name, report.IsConnected, stopwatch.ElapsedMilliseconds,
-                    report.IsConnected ? null : "Связь не подтверждена");
+                if (_engine.Status != EngineStatus.Running)
+                {
+                    result = new PresetTestResult(
+                        preset.Id, preset.Name, false, stopwatch.ElapsedMilliseconds,
+                        "Движок (winws) завершился сразу после запуска. Проверьте права администратора, WinDivert/драйвер, файлы списков и аргументы пресета.");
+                }
+                else
+                {
+                    var report = await _connectivity.CheckAsync(ct);
+                    result = new PresetTestResult(
+                        preset.Id, preset.Name, report.IsConnected, stopwatch.ElapsedMilliseconds,
+                        report.IsConnected ? null : "Связь не подтверждена");
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
