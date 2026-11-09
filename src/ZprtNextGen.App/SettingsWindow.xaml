@@ -136,6 +136,8 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Content="Обновить программу" Command="{Binding UpdateAppCommand}"
                                 Style="{StaticResource SecondaryButton}" MinWidth="130" Padding="10,4" />
+                        <Button Content="Открыть GitHub releases" Command="{Binding OpenGitHubCommand}"
+                                Style="{StaticResource SecondaryButton}" MinWidth="140" Padding="10,4" />
                     </StackPanel>
                     <TextBlock Text="{Binding UpdateStatusText}" Foreground="{StaticResource Brush.TextMuted}"
                                FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -152,7 +154,7 @@
                     <TextBlock Text="Последовательно запускает каждый альтернативный пресет, проверяет Discord/YouTube и останавливает движок."
                                Foreground="{StaticResource Brush.TextMuted}" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Content="Тестировать все альты" Command="{Binding TestAllPresetsCommand}"
+                        <Button Content="Тестировать все обходы" Command="{Binding TestAllPresetsCommand}"
                                 Style="{StaticResource SecondaryButton}" MinWidth="140" Padding="10,4" />
                         <Button Content="Остановить" Command="{Binding CancelPresetTestCommand}"
                                 Style="{StaticResource SecondaryButton}" MinWidth="100" Padding="10,4" Margin="10,0,0,0" />

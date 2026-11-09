@@ -78,6 +78,7 @@ public partial class MainViewModel : INotifyPropertyChanged
     private readonly AsyncRelayCommand _testAllPresetsCommand;
     private readonly RelayCommand _cancelPresetTestCommand;
     private readonly RelayCommand _applyPresetCommand;
+    private readonly RelayCommand _openGitHubCommand;
     private readonly MaintenanceDependencies? _maintenance;
 
     private AppSettings _settings = new();
@@ -133,6 +134,7 @@ public partial class MainViewModel : INotifyPropertyChanged
         _testAllPresetsCommand = new AsyncRelayCommand(async _ => await TestAllPresetsAsync(), () => !IsTestingPresets);
         _cancelPresetTestCommand = new RelayCommand(_ => CancelTest(), _ => IsTestingPresets);
         _applyPresetCommand = new RelayCommand(p => ApplyPreset(p as string));
+        _openGitHubCommand = new RelayCommand(_ => OnOpenGitHub());
 
         _engineProcess.OutputReceived += OnOutputReceived;
         _engineProcess.StatusChanged += OnEngineStatusChanged;
@@ -170,6 +172,9 @@ public partial class MainViewModel : INotifyPropertyChanged
 
     /// <summary>Применить выбранный пресет по идентификатору (из результатов теста альтов).</summary>
     public ICommand ApplyPresetCommand => _applyPresetCommand;
+
+    /// <summary>Открыть релизы ZPRT_NEXT_GEN на GitHub (резервный путь при недоступности API).</summary>
+    public ICommand OpenGitHubCommand => _openGitHubCommand;
 
     /// <summary>Версия оболочки (из <see cref="MaintenanceDependencies.AppVersion"/>).</summary>
     public string AppVersion => _maintenance?.AppVersion ?? string.Empty;
@@ -384,6 +389,10 @@ public partial class MainViewModel : INotifyPropertyChanged
                 AnimationState = MeditationState.Stopped;
                 StatusText = "Готов к запуску.";
             }
+
+            // Автопроверка обновлений движка при включении приложения.
+            if (_engine.IsValid)
+                _ = CheckUpdatesAsync();
         }
         catch (Exception ex)
         {
@@ -857,7 +866,7 @@ public partial class MainViewModel : INotifyPropertyChanged
                 _testCts.Token);
 
             PresetTestResults.Clear();
-            foreach (var result in results)
+            foreach (var result in results.OrderBy(r => r.ElapsedMs))
                 PresetTestResults.Add(result);
 
             var ok = results.Count(r => r.Success);
@@ -893,6 +902,27 @@ public partial class MainViewModel : INotifyPropertyChanged
         if (preset is not null)
         {
             SelectedPreset = preset;
+        }
+    }
+
+    /// <summary>Открыть релизы ZPRT_NEXT_GEN на GitHub в браузере (резервный путь при 504/недоступности API).</summary>
+    private void OnOpenGitHub()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Не удалось открыть GitHub releases: " + ex.Message, ex);
+            MessageBox.Show(
+                "Не удалось открыть ссылку в браузере: " + ex.Message,
+                "ZPRT NEXT GEN",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 

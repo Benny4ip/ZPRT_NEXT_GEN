@@ -430,10 +430,13 @@ public class MainViewModelTests
         await vm.TestAllPresetsAsync();
 
         Assert.Equal(2, vm.PresetTestResults.Count);
-        Assert.Equal("Альтернатива 5", vm.PresetTestResults[0].Name);
-        Assert.True(vm.PresetTestResults[0].Success);
-        Assert.Equal("Альтернатива 6", vm.PresetTestResults[1].Name);
-        Assert.False(vm.PresetTestResults[1].Success);
+        // После сортировки по пингу — первым самый быстрый (50 мс — Альтернатива 6)
+        Assert.Equal("Альтернатива 6", vm.PresetTestResults[0].Name);
+        Assert.False(vm.PresetTestResults[0].Success);
+        Assert.Equal(50, vm.PresetTestResults[0].ElapsedMs);
+        Assert.Equal("Альтернатива 5", vm.PresetTestResults[1].Name);
+        Assert.True(vm.PresetTestResults[1].Success);
+        Assert.Equal(120, vm.PresetTestResults[1].ElapsedMs);
         Assert.Equal(2, tester.LastPresets.Count);
         Assert.All(tester.LastPresets, p => Assert.True(p.Id.StartsWith("general-alt")));
         Assert.Equal(@"C:\E", tester.LastEngineRoot);

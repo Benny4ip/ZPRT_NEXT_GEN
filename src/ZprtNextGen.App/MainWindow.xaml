@@ -65,10 +65,11 @@
         <!-- Пресеты: сгруппированный селектор + кнопка настроек рядом. -->
         <Grid Grid.Row="1" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <clr:PresetSelector Grid.Column="0"
+            <clr:PresetSelector Grid.Column="0" MaxWidth="400"
                                 Groups="{Binding Groups}"
                                 SelectedPreset="{Binding SelectedPreset, Mode=TwoWay}"
                                 SelectCommand="{Binding SelectPresetCommand}" />
@@ -76,7 +77,7 @@
                     FontFamily="Segoe UI Symbol" FontSize="28"
                     Style="{StaticResource IconButton}"
                     Click="OnSettings"
-                    VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="Настройки" />
+                    VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Настройки" />
         </Grid>
 
         <!-- Связь и лог. -->
