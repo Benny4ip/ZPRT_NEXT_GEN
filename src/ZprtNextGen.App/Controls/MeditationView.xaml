@@ -106,6 +106,19 @@
             <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.4" />
         </Storyboard>
 
+        <!-- Мерцание линии: короткие вспышки, цикл ~2.2 с. -->
+        <Storyboard x:Key="ShimmerStoryboard">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="PulseShimmer" Storyboard.TargetProperty="Opacity"
+                                           RepeatBehavior="Forever">
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0" />
+                <LinearDoubleKeyFrame KeyTime="0:0:0.3" Value="0.5" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0.35" Value="0" />
+                <LinearDoubleKeyFrame KeyTime="0:0:1.1" Value="0.35" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:1.15" Value="0" />
+                <LinearDoubleKeyFrame KeyTime="0:0:2.2" Value="0" />
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+
         <!-- Форма линии сигнала: ровная полоса с коротким импульсом по центру. -->
         <PathGeometry x:Key="PulseGeometry"
                       Figures="M64,140 H104 L114,106 L130,174 L144,128 L154,140 H216" />
@@ -141,12 +154,12 @@
                 <Ellipse Width="140" Height="140" Canvas.Left="70" Canvas.Top="70"
                          Stroke="#1D1D1D" StrokeThickness="1" Fill="Transparent" />
 
-                <!-- Золотая дуга, появляется при подтверждённой связи. -->
-                <Canvas x:Name="AccentLayer" Opacity="0">
-                    <Path Data="M140,44 A96,96 0 0 1 236,140"
-                          Stroke="#FFC65C" StrokeThickness="2"
-                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-                </Canvas>
+                <!-- Золотая обводка-кольцо (полоса прогресса вокруг пульса). -->
+                <Path x:Name="ProgressArc"
+                      Stroke="#FFC65C" StrokeThickness="3"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                      StrokeLineJoin="Round"
+                      Opacity="0" IsHitTestVisible="False" />
 
                 <!-- Свечение и чёткий контур линии сигнала. -->
                 <Path Data="{StaticResource PulseGeometry}"
@@ -161,6 +174,12 @@
                       Stroke="#FF3B4E" StrokeThickness="3"
                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                       Opacity="0.5" x:Name="PulseLine" />
+
+                <!-- Мерцание поверх линии сигнала. -->
+                <Path Data="{StaticResource PulseGeometry}"
+                      Stroke="#FFFFFF" StrokeThickness="1"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      Opacity="0" x:Name="PulseShimmer" IsHitTestVisible="False" />
 
                 <!-- Золотая точка на конце линии. -->
                 <Canvas x:Name="EndDotLayer" Opacity="0">

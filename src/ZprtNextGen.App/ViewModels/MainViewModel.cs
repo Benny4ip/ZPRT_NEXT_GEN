@@ -20,6 +20,7 @@ using ZprtNextGen.Core.Presets;
 using ZprtNextGen.Core.Process;
 using ZprtNextGen.Core.Settings;
 using ZprtNextGen.Core.Startup;
+using ZprtNextGen.Core.Updates;
 
 namespace ZprtNextGen.App.ViewModels;
 
@@ -36,6 +37,15 @@ public record MainViewModelDependencies(
     Func<string, bool> Confirm,
     Func<string?, EngineValidation>? LocateEngine = null);
 
+/// <summary>Сервисы обслуживания: обновления и тестирование пресетов.</summary>
+public record MaintenanceDependencies(
+    IGitHubReleaseClient GitHub,
+    IEngineUpdater EngineUpdater,
+    IAppUpdater AppUpdater,
+    IPresetTester PresetTester,
+    string AppVersion,
+    string PresetsPath);
+
 /// <summary>
 /// Модель представления главного окна: тонкая обёртка над асинхронными методами
 /// collaborators. Весь пользовательский текст — на русском языке.
@@ -46,7 +56,7 @@ public partial class MainViewModel : INotifyPropertyChanged
 
     private const int MaxLogLines = 500;
 
-    private readonly PresetCatalog _catalog;
+    private PresetCatalog _catalog;
     private readonly ISettingsStore _settingsStore;
     private readonly IEngineProcessManager _engineProcess;
     private readonly IConnectivityService _connectivity;
@@ -62,6 +72,12 @@ public partial class MainViewModel : INotifyPropertyChanged
     private readonly RelayCommand _openLogsCommand;
     private readonly AsyncRelayCommand _toggleAutostartCommand;
     private readonly RelayCommand _exitCommand;
+    private readonly AsyncRelayCommand _checkUpdatesCommand;
+    private readonly AsyncRelayCommand _updateEngineCommand;
+    private readonly AsyncRelayCommand _updateAppCommand;
+    private readonly AsyncRelayCommand _testAllPresetsCommand;
+    private readonly RelayCommand _cancelPresetTestCommand;
+    private readonly MaintenanceDependencies? _maintenance;
 
     private AppSettings _settings = new();
     private EngineValidation _engine = new(false, null, Array.Empty<string>());
@@ -80,7 +96,15 @@ public partial class MainViewModel : INotifyPropertyChanged
     private IReadOnlyList<ConnectivityRowViewModel> _connectivityRows = Array.Empty<ConnectivityRowViewModel>();
     private IReadOnlyList<PresetGroupViewModel> _groups = Array.Empty<PresetGroupViewModel>();
 
-    public MainViewModel(MainViewModelDependencies dependencies)
+    private string _updateStatusText = string.Empty;
+    private double _updateProgress;
+    private bool _isMaintenanceBusy;
+    private string _presetTestStatus = string.Empty;
+    private double _presetTestProgress;
+    private bool _isTestingPresets;
+    private CancellationTokenSource? _testCts;
+
+    public MainViewModel(MainViewModelDependencies dependencies, MaintenanceDependencies? Maintenance = null)
     {
         _catalog = dependencies.Catalog ?? throw new ArgumentNullException(nameof(dependencies.Catalog));
         _settingsStore = dependencies.Settings ?? throw new ArgumentNullException(nameof(dependencies.Settings));
@@ -92,6 +116,7 @@ public partial class MainViewModel : INotifyPropertyChanged
         _dispatcher = dependencies.Dispatcher ?? throw new ArgumentNullException(nameof(dependencies.Dispatcher));
         _confirm = dependencies.Confirm ?? throw new ArgumentNullException(nameof(dependencies.Confirm));
         _locateEngine = dependencies.LocateEngine ?? (path => EngineLocator.Locate(path, AppContext.BaseDirectory));
+        _maintenance = Maintenance;
 
         _toggleCommand = new AsyncRelayCommand(
             async () => await ToggleAsync(),
@@ -101,6 +126,11 @@ public partial class MainViewModel : INotifyPropertyChanged
         _openLogsCommand = new RelayCommand(_ => OnOpenLogs());
         _toggleAutostartCommand = new AsyncRelayCommand(async () => await ToggleAutostartAsync(), () => !IsBusy);
         _exitCommand = new RelayCommand(_ => Application.Current?.Shutdown(), _ => Application.Current is not null);
+        _checkUpdatesCommand = new AsyncRelayCommand(async () => await CheckUpdatesAsync(), () => !IsMaintenanceBusy);
+        _updateEngineCommand = new AsyncRelayCommand(async () => await UpdateEngineAsync(), () => !IsMaintenanceBusy && CanStart);
+        _updateAppCommand = new AsyncRelayCommand(async () => await UpdateAppAsync(), () => !IsMaintenanceBusy);
+        _testAllPresetsCommand = new AsyncRelayCommand(async () => await TestAllPresetsAsync(), () => !IsTestingPresets);
+        _cancelPresetTestCommand = new RelayCommand(_ => CancelTest(), _ => IsTestingPresets);
 
         _engineProcess.OutputReceived += OnOutputReceived;
         _engineProcess.StatusChanged += OnEngineStatusChanged;
@@ -117,6 +147,68 @@ public partial class MainViewModel : INotifyPropertyChanged
     public ICommand ToggleAutostartCommand => _toggleAutostartCommand;
 
     public ICommand ExitCommand => _exitCommand;
+
+    /// <summary>Событие ошибки пользовательского уровня (одно окно на эпизод).</summary>
+    public event EventHandler<string>? ErrorRaised;
+
+    private string _lastErrorMessage = string.Empty;
+
+    /// <summary>Последнее сообщение ошибки, переданное через <see cref="ErrorRaised"/>.</summary>
+    public string LastErrorMessage => _lastErrorMessage;
+
+    public ICommand CheckUpdatesCommand => _checkUpdatesCommand;
+
+    public ICommand UpdateEngineCommand => _updateEngineCommand;
+
+    public ICommand UpdateAppCommand => _updateAppCommand;
+
+    public ICommand TestAllPresetsCommand => _testAllPresetsCommand;
+
+    public ICommand CancelPresetTestCommand => _cancelPresetTestCommand;
+
+    /// <summary>Версия оболочки (из <see cref="MaintenanceDependencies.AppVersion"/>).</summary>
+    public string AppVersion => _maintenance?.AppVersion ?? string.Empty;
+
+    public string UpdateStatusText
+    {
+        get => _updateStatusText;
+        private set => SetField(ref _updateStatusText, value);
+    }
+
+    public double UpdateProgress
+    {
+        get => _updateProgress;
+        private set => SetField(ref _updateProgress, value);
+    }
+
+    public bool IsMaintenanceBusy
+    {
+        get => _isMaintenanceBusy;
+        private set => SetField(ref _isMaintenanceBusy, value);
+    }
+
+    public ObservableCollection<PresetTestResult> PresetTestResults { get; } = new();
+
+    public string PresetTestStatus
+    {
+        get => _presetTestStatus;
+        private set => SetField(ref _presetTestStatus, value);
+    }
+
+    public double PresetTestProgress
+    {
+        get => _presetTestProgress;
+        private set => SetField(ref _presetTestProgress, value);
+    }
+
+    public bool IsTestingPresets
+    {
+        get => _isTestingPresets;
+        private set => SetField(ref _isTestingPresets, value);
+    }
+
+    /// <summary>Событие: требуется перезапуск программы после обновления самой оболочки.</summary>
+    public event EventHandler? RestartRequested;
 
     public IReadOnlyList<PresetGroupViewModel> Groups
     {
@@ -486,6 +578,11 @@ public partial class MainViewModel : INotifyPropertyChanged
         _testConnectionCommand.RaiseCanExecuteChanged();
         _selectPresetCommand.RaiseCanExecuteChanged();
         _toggleAutostartCommand.RaiseCanExecuteChanged();
+        _checkUpdatesCommand.RaiseCanExecuteChanged();
+        _updateEngineCommand.RaiseCanExecuteChanged();
+        _updateAppCommand.RaiseCanExecuteChanged();
+        _testAllPresetsCommand.RaiseCanExecuteChanged();
+        _cancelPresetTestCommand.RaiseCanExecuteChanged();
     }
 
     private void SaveSettings() => _settingsStore.Save(_settings);
@@ -493,8 +590,256 @@ public partial class MainViewModel : INotifyPropertyChanged
     private void HandleError(Exception ex)
     {
         _logger.Error(ex.Message, ex);
+        _lastErrorMessage = ex.Message;
         AnimationState = MeditationState.Error;
         StatusText = $"Ошибка: {ex.Message}";
+        ErrorRaised?.Invoke(this, ex.Message);
+    }
+
+    /// <summary>Проверить обновления движка и программы через GitHub Releases.</summary>
+    public async Task CheckUpdatesAsync()
+    {
+        if (_maintenance is null)
+        {
+            UpdateStatusText = "Проверка обновлений недоступна.";
+            return;
+        }
+
+        IsMaintenanceBusy = true;
+        try
+        {
+            UpdateProgress = 0;
+
+            var engineLatest = await _maintenance.GitHub.GetLatestAsync(
+                "Flowseal/zapret-discord-youtube", CancellationToken.None);
+            UpdateProgress = 50;
+
+            var appLatest = await _maintenance.GitHub.GetLatestAsync(
+                "Benny4ip/ZPRT_NEXT_GEN", CancellationToken.None);
+            UpdateProgress = 100;
+
+            var text = string.Empty;
+            if (engineLatest is not null)
+            {
+                var current = _catalog.EngineVersion;
+                if (VersionComparer.IsNewer(engineLatest.Tag, current))
+                    text += $"Доступна версия движка {engineLatest.Tag} (установлена {current}). ";
+                else
+                    text += $"Движок актуален (v{current}). ";
+            }
+            else
+            {
+                text += "Не удалось проверить движок: GitHub недоступен. ";
+            }
+
+            if (appLatest is not null)
+            {
+                if (VersionComparer.IsNewer(appLatest.Tag, AppVersion))
+                    text += $"Доступна версия программы {appLatest.Tag} (установлена v{AppVersion}).";
+                else
+                    text += $"Программа актуальна (v{AppVersion}).";
+            }
+            else
+            {
+                text += "Не удалось проверить программу: GitHub недоступен.";
+            }
+
+            UpdateStatusText = text.Trim();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message, ex);
+            UpdateStatusText = "Ошибка проверки обновлений: " + ex.Message;
+        }
+        finally
+        {
+            IsMaintenanceBusy = false;
+            UpdateProgress = 0;
+        }
+    }
+
+    /// <summary>Обновить движок (запрет) с GitHub.</summary>
+    public async Task UpdateEngineAsync()
+    {
+        if (_maintenance is null || !_engine.IsValid || _engine.EngineRoot is null)
+        {
+            UpdateStatusText = "Движок не найден или некорректен.";
+            return;
+        }
+        if (_engineProcess.Status == EngineStatus.Running)
+        {
+            UpdateStatusText = "Остановите движок перед обновлением.";
+            return;
+        }
+
+        IsMaintenanceBusy = true;
+        try
+        {
+            UpdateProgress = 0;
+            var release = await _maintenance.GitHub.GetLatestAsync(
+                "Flowseal/zapret-discord-youtube", CancellationToken.None);
+            if (release is null)
+            {
+                UpdateStatusText = "Не удалось проверить обновления движка: GitHub недоступен.";
+                return;
+            }
+            if (!VersionComparer.IsNewer(release.Tag, _catalog.EngineVersion))
+            {
+                UpdateStatusText = $"Движок уже актуален (v{_catalog.EngineVersion}).";
+                return;
+            }
+
+            UpdateProgress = 30;
+            var result = await _maintenance.EngineUpdater.UpdateAsync(
+                release,
+                _engine.EngineRoot,
+                _maintenance.PresetsPath,
+                () => _engineProcess.StopAsync(CancellationToken.None),
+                null,
+                CancellationToken.None);
+            UpdateProgress = 100;
+
+            UpdateStatusText = result.Message
+                ?? $"Движок обновлён до v{result.NewVersion} ({result.PresetCount} пресетов).";
+            await ReloadCatalogAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message, ex);
+            UpdateStatusText = "Ошибка обновления движка: " + ex.Message;
+        }
+        finally
+        {
+            IsMaintenanceBusy = false;
+            UpdateProgress = 0;
+        }
+    }
+
+    /// <summary>Обновить саму программу с GitHub (перезапуск через скрипт после выхода).</summary>
+    public async Task UpdateAppAsync()
+    {
+        if (_maintenance is null)
+        {
+            UpdateStatusText = "Обновление программы недоступно.";
+            return;
+        }
+
+        IsMaintenanceBusy = true;
+        try
+        {
+            var release = await _maintenance.GitHub.GetLatestAsync("Benny4ip/ZPRT_NEXT_GEN", CancellationToken.None);
+            if (release is null)
+            {
+                UpdateStatusText = "Не удалось проверить обновления программы: GitHub недоступен.";
+                return;
+            }
+            if (!VersionComparer.IsNewer(release.Tag, AppVersion))
+            {
+                UpdateStatusText = $"Программа уже актуальна (v{AppVersion}).";
+                return;
+            }
+
+            var plan = await _maintenance.AppUpdater.PrepareAsync(
+                release, AppContext.BaseDirectory, null, CancellationToken.None);
+            UpdateStatusText = $"Обновление программы до v{release.Tag} подготовлено. Перезапуск…";
+            RestartRequested?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message, ex);
+            UpdateStatusText = "Ошибка обновления программы: " + ex.Message;
+        }
+        finally
+        {
+            IsMaintenanceBusy = false;
+            UpdateProgress = 0;
+        }
+    }
+
+    /// <summary>Последовательно протестировать все альтернативные пресеты.</summary>
+    public async Task TestAllPresetsAsync()
+    {
+        if (_maintenance is null || _engine.EngineRoot is null)
+        {
+            PresetTestStatus = "Движок не найден.";
+            return;
+        }
+
+        IsTestingPresets = true;
+        PresetTestResults.Clear();
+        PresetTestStatus = string.Empty;
+        PresetTestProgress = 0;
+        _testCts = new CancellationTokenSource();
+
+        try
+        {
+            var presets = _catalog.Presets
+                .Where(p => p.GroupId == "general" && p.Id.StartsWith("general-alt", StringComparison.Ordinal))
+                .ToList();
+            if (presets.Count == 0)
+            {
+                PresetTestStatus = "Альтернативные пресеты не найдены.";
+                return;
+            }
+
+            var results = await _maintenance.PresetTester.TestAllAsync(
+                presets,
+                _engine.EngineRoot,
+                GameFilter,
+                new Progress<PresetTestProgress>(p =>
+                {
+                    PresetTestProgress = (double)p.Index / p.Total * 100;
+                }),
+                _testCts.Token);
+
+            PresetTestResults.Clear();
+            foreach (var result in results)
+                PresetTestResults.Add(result);
+
+            var ok = results.Count(r => r.Success);
+            PresetTestStatus = $"Проверено {results.Count}, успешно {ok}.";
+        }
+        catch (OperationCanceledException)
+        {
+            PresetTestStatus = "Проверка отменена пользователем.";
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message, ex);
+            PresetTestStatus = "Ошибка проверки пресетов: " + ex.Message;
+        }
+        finally
+        {
+            IsTestingPresets = false;
+            _testCts = null;
+        }
+    }
+
+    /// <summary>Отменить текущее тестирование пресетов.</summary>
+    private void CancelTest() => _testCts?.Cancel();
+
+    /// <summary>Перезагрузить каталог пресетов с диска (сохраняя выбранный пресет).</summary>
+    public async Task ReloadCatalogAsync()
+    {
+        if (_maintenance is null || string.IsNullOrEmpty(_maintenance.PresetsPath))
+            return;
+
+        var previousId = _selectedPreset?.Id;
+        _catalog = PresetCatalogLoader.Load(_maintenance.PresetsPath);
+
+        var groups = new List<PresetGroupViewModel>();
+        foreach (var group in _catalog.Groups)
+        {
+            var groupPresets = _catalog.Presets.Where(p => p.GroupId == group.Id).ToList();
+            var groupVm = new PresetGroupViewModel(group.Id, group.Name, groupPresets, _collapsedGroups);
+            groupVm.PropertyChanged += OnGroupIsExpandedChanged;
+            groups.Add(groupVm);
+        }
+        Groups = groups;
+
+        SelectedPreset = _catalog.Presets
+            .FirstOrDefault(p => p.Id.Equals(previousId, StringComparison.OrdinalIgnoreCase))
+            ?? _catalog.Presets.FirstOrDefault();
     }
 
     private void OnEngineStatusChanged(object? sender, EngineStatusChangedEventArgs e)

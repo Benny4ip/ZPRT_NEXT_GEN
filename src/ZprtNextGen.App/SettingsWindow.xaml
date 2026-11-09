@@ -1,0 +1,182 @@
+<Window x:Class="ZprtNextGen.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:conv="clr-namespace:ZprtNextGen.App.Converters"
+        xmlns:presets="clr-namespace:ZprtNextGen.Core.Presets;assembly=ZprtNextGen.Core"
+        mc:Ignorable="d"
+        Title="Настройки"
+        Width="660" Height="760"
+        MinWidth="640" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Style="{StaticResource DarkWindow}">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Window.Resources>
+
+    <ScrollViewer Margin="16" Style="{StaticResource DarkScrollViewer}" VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="620">
+            <TextBlock Text="Настройки" FontSize="24" FontWeight="Bold"
+                       Foreground="{StaticResource Brush.Text}" Margin="0,0,0,24" />
+
+            <!-- Движок -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel Margin="16">
+                    <TextBlock Text="Движок" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"
+                               Margin="0,0,0,12" />
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding EnginePath, Mode=OneWay}" IsReadOnly="True"
+                                 Style="{StaticResource DarkTextBox}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Обзор…" Click="OnBrowseEngine"
+                                Style="{StaticResource SecondaryButton}" VerticalAlignment="Center"
+                                Margin="10,0,0,0" MinWidth="90" Padding="10,4" />
+                    </Grid>
+                    <TextBlock Text="{Binding EngineVersion, StringFormat='Версия движка: {0}'}"
+                               Foreground="{StaticResource Brush.TextMuted}" FontSize="12" Margin="0,0,0,4" />
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Игровой фильтр" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox Grid.Column="1" Style="{StaticResource DarkComboBox}"
+                                  SelectedValue="{Binding GameFilter, Mode=TwoWay}"
+                                  SelectedValuePath="Tag" DisplayMemberPath="Content"
+                                  MinWidth="140" VerticalAlignment="Center">
+                            <ComboBoxItem Content="Выключен" Tag="{x:Static presets:GameFilterMode.Disabled}" />
+                            <ComboBoxItem Content="TCP" Tag="{x:Static presets:GameFilterMode.Tcp}" />
+                            <ComboBoxItem Content="UDP" Tag="{x:Static presets:GameFilterMode.Udp}" />
+                            <ComboBoxItem Content="Все" Tag="{x:Static presets:GameFilterMode.All}" />
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Поведение -->
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel Margin="16">
+                    <TextBlock Text="Поведение" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"
+                               Margin="0,0,0,12" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Автозапуск вместе с системой" Foreground="{StaticResource Brush.Text}"
+                                   VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <ToggleButton Style="{StaticResource ToggleSwitch}"
+                                      IsChecked="{Binding IsAutostartEnabled, Mode=TwoWay}"
+                                      VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Сворачивать в трей вместо закрытия" Foreground="{StaticResource Brush.Text}"
+                                   VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <ToggleButton Style="{StaticResource ToggleSwitch}"
+                                      IsChecked="{Binding MinimizeToTray, Mode=TwoWay}"
+                                      VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Уменьшить анимацию" Foreground="{StaticResource Brush.Text}"
+                                   VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <ToggleButton Style="{StaticResource ToggleSwitch}"
+                                      IsChecked="{Binding ReduceMotion, Mode=TwoWay}"
+                                      VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Обновления -->
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel Margin="16">
+                    <TextBlock Text="Обновления" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"
+                               Margin="0,0,0,12" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Версия программы:" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding AppVersion}" Foreground="{StaticResource Brush.TextMuted}"
+                                   VerticalAlignment="Center" HorizontalAlignment="Right" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Версия движка:" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding EngineVersion}" Foreground="{StaticResource Brush.TextMuted}"
+                                   VerticalAlignment="Center" HorizontalAlignment="Right" />
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Проверить обновление" Command="{Binding CheckUpdatesCommand}"
+                                Style="{StaticResource SecondaryButton}" MinWidth="130" Padding="10,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Обновить запрет (движок)" Command="{Binding UpdateEngineCommand}"
+                                Style="{StaticResource SecondaryButton}" MinWidth="150" Padding="10,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Обновить программу" Command="{Binding UpdateAppCommand}"
+                                Style="{StaticResource SecondaryButton}" MinWidth="130" Padding="10,4" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding UpdateStatusText}" Foreground="{StaticResource Brush.TextMuted}"
+                               FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    <ProgressBar Value="{Binding UpdateProgress, Mode=OneWay}" Height="6" Margin="0,0,0,8"
+                                 Visibility="{Binding IsMaintenanceBusy, Converter={StaticResource BoolToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Проверка пресетов -->
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel Margin="16">
+                    <TextBlock Text="Проверка пресетов" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"
+                               Margin="0,0,0,12" />
+                    <TextBlock Text="Последовательно запускает каждый альтернативный пресет, проверяет Discord/YouTube и останавливает движок."
+                               Foreground="{StaticResource Brush.TextMuted}" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Тестировать все альты" Command="{Binding TestAllPresetsCommand}"
+                                Style="{StaticResource SecondaryButton}" MinWidth="140" Padding="10,4" />
+                        <Button Content="Остановить" Command="{Binding CancelPresetTestCommand}"
+                                Style="{StaticResource SecondaryButton}" MinWidth="100" Padding="10,4" Margin="10,0,0,0" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding PresetTestStatus}" Foreground="{StaticResource Brush.TextMuted}"
+                               FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    <ProgressBar Value="{Binding PresetTestProgress, Mode=OneWay}" Height="6" Margin="0,0,0,8"
+                                 Visibility="{Binding IsTestingPresets, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    <ItemsControl ItemsSource="{Binding PresetTestResults}" Margin="0,0,0,8">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="6,4" CornerRadius="6" SnapsToDevicePixels="True">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{StaticResource Brush.Text}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding StatusText}"
+                                                   Foreground="{Binding Success, Converter={StaticResource BoolToBrushConverter}}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding ElapsedMs, StringFormat='{}{0} мс'}"
+                                                   Foreground="{StaticResource Brush.TextMuted}" FontSize="11" Margin="8,0,0,0" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Подвал -->
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel Margin="16" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="О программе" Click="OnAbout"
+                            Style="{StaticResource SecondaryButton}" MinWidth="100" Padding="10,4" Margin="0,0,10,0" />
+                    <Button Content="Закрыть" Click="OnClose"
+                            Style="{StaticResource SecondaryButton}" MinWidth="100" Padding="10,4" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

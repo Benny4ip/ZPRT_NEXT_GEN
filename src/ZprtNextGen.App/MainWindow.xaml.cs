@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.LogLines.CollectionChanged += OnLogLinesChanged;
+        _viewModel.ErrorRaised += OnErrorRaised;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -36,8 +37,31 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs e) => await _viewModel.InitializeAsync();
 
-    /// <summary>Разрешить выход из приложения: следующее закрытие окна не будет свёрнуто в трей.</summary>
-    public void RequestExit() => _exiting = true;
+    private bool _errorDialogOpen;
+
+    /// <summary>Инициировать выход: окно закроется, движок остановится.</summary>
+    public void RequestExit()
+    {
+        _exiting = true;
+        Close();
+    }
+
+    private void OnErrorRaised(object? sender, string message)
+    {
+        if (_errorDialogOpen)
+            return;
+
+        _errorDialogOpen = true;
+        try
+        {
+            MessageBox.Show(this, message, "ZPRT NEXT GEN — ошибка",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _errorDialogOpen = false;
+        }
+    }
 
     private async void OnClosing(object sender, CancelEventArgs e)
     {
@@ -71,6 +95,7 @@ public partial class MainWindow : Window
         await _viewModel.ShutdownAsync(stopEngine);
     }
 
+    private SettingsWindow? _settingsWindow;
     private bool _scrollQueued;
 
     private void OnLogLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -94,21 +119,17 @@ public partial class MainWindow : Window
             }));
     }
 
-    private async void OnBrowseEngine(object sender, RoutedEventArgs e)
+    private void OnSettings(object sender, RoutedEventArgs e)
     {
-        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        if (_settingsWindow is { IsLoaded: true })
         {
-            Description = "Выберите папку с движком winws",
-        };
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-        {
-            await _viewModel.ChangeEnginePathAsync(dialog.SelectedPath);
+            _settingsWindow.Show();
+            _settingsWindow.Activate();
+            return;
         }
-    }
 
-    private void OnAbout(object sender, RoutedEventArgs e)
-    {
-        var about = new AboutWindow(_viewModel.EngineVersion) { Owner = this };
-        about.ShowDialog();
+        _settingsWindow = new SettingsWindow(_viewModel) { Owner = this };
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
     }
 }

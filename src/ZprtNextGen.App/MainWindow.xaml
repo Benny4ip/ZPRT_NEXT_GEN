@@ -24,7 +24,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Герой: визуализация состояния + управление обходом. -->
@@ -32,6 +31,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <clr:MeditationView Grid.Column="0" Width="280" Height="280"
@@ -60,6 +60,13 @@
                 <TextBlock Text="Discord · YouTube · без лишних окон"
                            Foreground="{StaticResource Brush.TextMuted}" FontSize="12" Margin="0,16,0,0" />
             </StackPanel>
+
+            <Button Grid.Column="2" Content="&#x2699;"
+                    FontFamily="Segoe UI Symbol" FontSize="20"
+                    Style="{StaticResource IconButton}"
+                    Click="OnSettings"
+                    VerticalAlignment="Center" HorizontalAlignment="Right"
+                    Margin="12,0,16,0" ToolTip="Настройки" />
         </Grid>
 
         <!-- Пресеты: сгруппированный селектор (Task 16). -->
@@ -133,80 +140,5 @@
             </Border>
         </Grid>
 
-        <!-- Подвал: настройки. -->
-        <Expander x:Name="SettingsPanel" Grid.Row="3" Header="Настройки"
-                  Style="{StaticResource SettingsExpander}" Foreground="{StaticResource Brush.Text}">
-            <StackPanel>
-                <Grid Margin="0,0,0,14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Папка движка" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <TextBox Grid.Column="1" Text="{Binding EnginePath, Mode=OneWay}" IsReadOnly="True"
-                             Style="{StaticResource DarkTextBox}" VerticalAlignment="Center" />
-                    <Button Grid.Column="2" Content="Обзор…" Click="OnBrowseEngine"
-                            Style="{StaticResource SecondaryButton}" VerticalAlignment="Center"
-                            Margin="10,0,0,0" MinWidth="80" Padding="10,4" />
-                </Grid>
-
-                <Grid Margin="0,0,0,14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Игровой фильтр" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <ComboBox Grid.Column="1" Style="{StaticResource DarkComboBox}"
-                              SelectedValue="{Binding GameFilter, Mode=TwoWay}"
-                              SelectedValuePath="Tag" DisplayMemberPath="Content"
-                              MinWidth="140" VerticalAlignment="Center">
-                        <ComboBoxItem Content="Выключен" Tag="{x:Static presets:GameFilterMode.Disabled}" />
-                        <ComboBoxItem Content="TCP" Tag="{x:Static presets:GameFilterMode.Tcp}" />
-                        <ComboBoxItem Content="UDP" Tag="{x:Static presets:GameFilterMode.Udp}" />
-                        <ComboBoxItem Content="Все" Tag="{x:Static presets:GameFilterMode.All}" />
-                    </ComboBox>
-                </Grid>
-
-                <Grid Margin="0,0,0,14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                VerticalAlignment="Center" Margin="0,0,36,0">
-                        <TextBlock Text="Автозапуск" Foreground="{StaticResource Brush.Text}"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <ToggleButton Style="{StaticResource ToggleSwitch}"
-                                      IsChecked="{Binding IsAutostartEnabled, Mode=TwoWay}"
-                                      VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                VerticalAlignment="Center" Margin="0,0,36,0">
-                        <TextBlock Text="Сворачивать в трей" Foreground="{StaticResource Brush.Text}"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <ToggleButton Style="{StaticResource ToggleSwitch}"
-                                      IsChecked="{Binding MinimizeToTray, Mode=TwoWay}"
-                                      VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Уменьшить анимацию" Foreground="{StaticResource Brush.Text}"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <ToggleButton Style="{StaticResource ToggleSwitch}"
-                                      IsChecked="{Binding ReduceMotion, Mode=TwoWay}"
-                                      VerticalAlignment="Center" />
-                    </StackPanel>
-                </Grid>
-
-                <Button x:Name="AboutButton" Content="О программе" Click="OnAbout"
-                        Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
-                        MinWidth="100" Padding="10,4" />
-            </StackPanel>
-        </Expander>
     </Grid>
 </Window>

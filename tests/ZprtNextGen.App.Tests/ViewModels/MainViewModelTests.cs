@@ -10,6 +10,7 @@ using ZprtNextGen.Core.Presentation;
 using ZprtNextGen.Core.Process;
 using ZprtNextGen.Core.Presets;
 using ZprtNextGen.Core.Settings;
+using ZprtNextGen.Core.Updates;
 
 namespace ZprtNextGen.App.Tests.ViewModels;
 
@@ -61,7 +62,8 @@ public class MainViewModelTests
 
     private static (MainViewModel Vm, FakeSettingsStore Store, FakeEngineProcess EngineProcess,
         FakeConnectivity Connectivity, FakeAutostart Autostart, FakeLogger Logger) CreateVm(
-        MainViewModelDependencies? dependencies = null)
+        MainViewModelDependencies? dependencies = null,
+        MaintenanceDependencies? maintenance = null)
     {
         var deps = dependencies ?? BuildDependencies();
         var store = (FakeSettingsStore)deps.Settings;
@@ -69,7 +71,7 @@ public class MainViewModelTests
         var connectivity = (FakeConnectivity)deps.Connectivity;
         var autostart = (FakeAutostart)deps.Autostart;
         var logger = (FakeLogger)deps.Logger;
-        var vm = new MainViewModel(deps);
+        var vm = new MainViewModel(deps, maintenance);
         return (vm, store, engineProcess, connectivity, autostart, logger);
     }
 
@@ -340,6 +342,127 @@ public class MainViewModelTests
         Assert.False(vm.IsAutostartEnabled); // откат UI
         Assert.False(store.Saved.Last().Autostart);
         Assert.Single(logger.Errors);
+    }
+
+    [Fact]
+    public void HandleError_RaisesErrorRaisedWithMessage()
+    {
+        var (vm, _, _, _, _, _) = CreateVm(BuildDependencies(
+            locateEngine: _ => throw new InvalidOperationException("boom")));
+
+        string? captured = null;
+        vm.ErrorRaised += (_, msg) => captured = msg;
+
+        vm.ChangeEnginePathAsync(@"C:\X").GetAwaiter().GetResult();
+
+        Assert.Equal("boom", captured);
+        Assert.Equal("boom", vm.LastErrorMessage);
+    }
+
+    [Fact]
+    public void CheckUpdatesAsync_NewerEngineAvailable_ReportsInStatus()
+    {
+        var gitHub = new FakeGitHubReleaseClient
+        {
+            Releases =
+            {
+                ["Flowseal/zapret-discord-youtube"] = new ReleaseInfo("1.10.4", "1.10.4", null, []),
+                ["Benny4ip/ZPRT_NEXT_GEN"] = new ReleaseInfo("0.2.0", "0.2.0", null, []),
+            }
+        };
+        var deps = BuildDependencies();
+        var (vm, _, _, _, _, _) = CreateVm(deps, new MaintenanceDependencies(
+            gitHub, new FakeEngineUpdater(), new FakeAppUpdater(), new FakePresetTester(), "0.1.0", @"C:\P\presets.json"));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        vm.CheckUpdatesAsync().GetAwaiter().GetResult();
+
+        Assert.Contains("1.10.4", vm.UpdateStatusText);
+        Assert.Contains("0.2.0", vm.UpdateStatusText);
+        Assert.Equal("0.1.0", vm.AppVersion);
+    }
+
+    [Fact]
+    public void CheckUpdatesAsync_EverythingCurrent_ReportsCurrent()
+    {
+        var gitHub = new FakeGitHubReleaseClient
+        {
+            Releases =
+            {
+                ["Flowseal/zapret-discord-youtube"] = new ReleaseInfo("1.0", "1.0", null, []),
+                ["Benny4ip/ZPRT_NEXT_GEN"] = new ReleaseInfo("0.1.0", "0.1.0", null, []),
+            }
+        };
+        var deps = BuildDependencies();
+        var (vm, _, _, _, _, _) = CreateVm(deps, new MaintenanceDependencies(
+            gitHub, new FakeEngineUpdater(), new FakeAppUpdater(), new FakePresetTester(), "0.1.0", @"C:\P\presets.json"));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        vm.CheckUpdatesAsync().GetAwaiter().GetResult();
+
+        Assert.Contains("актуален", vm.UpdateStatusText);
+    }
+
+    [Fact]
+    public async Task TestAllPresetsAsync_FillsResultsAndReportsStatus()
+    {
+        var tester = new FakePresetTester
+        {
+            Results =
+            {
+                new PresetTestResult("general-alt5", "Альтернатива 5", true, 120, null),
+                new PresetTestResult("general-alt6", "Альтернатива 6", false, 50, "таймаут"),
+            }
+        };
+        var catalog = new PresetCatalog(
+            1, "winws", "1.0",
+            new[] { new PresetGroup("general", "Обычные") },
+            new[]
+            {
+                new Preset("general-alt5", "general", "Альтернатива 5", "Описание", "--wf-tcp=80"),
+                new Preset("general-alt6", "general", "Альтернатива 6", "Описание", "--wf-tcp=443"),
+            });
+        var deps = BuildDependencies(catalog: catalog);
+        var (vm, _, engineProcess, _, _, _) = CreateVm(deps, new MaintenanceDependencies(
+            new FakeGitHubReleaseClient(), new FakeEngineUpdater(), new FakeAppUpdater(), tester, "0.1.0", @"C:\P\presets.json"));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        await vm.TestAllPresetsAsync();
+
+        Assert.Equal(2, vm.PresetTestResults.Count);
+        Assert.Equal("Альтернатива 5", vm.PresetTestResults[0].Name);
+        Assert.True(vm.PresetTestResults[0].Success);
+        Assert.Equal("Альтернатива 6", vm.PresetTestResults[1].Name);
+        Assert.False(vm.PresetTestResults[1].Success);
+        Assert.Equal(2, tester.LastPresets.Count);
+        Assert.All(tester.LastPresets, p => Assert.True(p.Id.StartsWith("general-alt")));
+        Assert.Equal(@"C:\E", tester.LastEngineRoot);
+        Assert.False(vm.IsTestingPresets);
+        Assert.Equal("Проверено 2, успешно 1.", vm.PresetTestStatus);
+    }
+
+    [Fact]
+    public async Task CancelPresetTestCommand_CancelsTesterToken()
+    {
+        var tester = new FakePresetTester { Hang = true };
+        var catalog = new PresetCatalog(
+            1, "winws", "1.0",
+            new[] { new PresetGroup("general", "Обычные") },
+            new[] { new Preset("general-alt5", "general", "Альтернатива 5", "Описание", "--wf-tcp=80") });
+        var deps = BuildDependencies(catalog: catalog);
+        var (vm, _, _, _, _, _) = CreateVm(deps, new MaintenanceDependencies(
+            new FakeGitHubReleaseClient(), new FakeEngineUpdater(), new FakeAppUpdater(), tester, "0.1.0", @"C:\P\presets.json"));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        var testTask = vm.TestAllPresetsAsync();
+        await Task.Yield();
+        Assert.True(vm.IsTestingPresets);
+        vm.CancelPresetTestCommand.Execute(null);
+        await testTask;
+
+        Assert.True(tester.LastCt.IsCancellationRequested);
+        Assert.Contains("отменена", vm.PresetTestStatus);
+        Assert.False(vm.IsTestingPresets);
     }
 
     [Fact]

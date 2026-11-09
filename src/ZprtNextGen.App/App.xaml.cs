@@ -14,6 +14,7 @@ using ZprtNextGen.Core.Presets;
 using ZprtNextGen.Core.Process;
 using ZprtNextGen.Core.Settings;
 using ZprtNextGen.Core.Startup;
+using ZprtNextGen.Core.Updates;
 
 namespace ZprtNextGen.App;
 
@@ -147,7 +148,16 @@ public partial class App : Application
             Confirm: ConfirmEngineAction,
             LocateEngine: path => EngineLocator.Locate(path, AppContext.BaseDirectory));
 
-        _vm = new MainViewModel(dependencies);
+        var maintenance = new MaintenanceDependencies(
+            GitHubReleaseClient.CreateDefault(),
+            new EngineUpdater(HttpFileDownloader.CreateDefault()),
+            new AppUpdater(HttpFileDownloader.CreateDefault()),
+            new PresetTester(engineProcess, connectivity),
+            typeof(App).Assembly.GetName().Version?.ToString() ?? "0.1.0",
+            catalogPath);
+
+        _vm = new MainViewModel(dependencies, maintenance);
+        _vm.RestartRequested += (_, _) => Application.Current.Shutdown();
         _mainWindow = new MainWindow(_vm);
 
         Icon? icon = null;

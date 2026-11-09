@@ -1,0 +1,27 @@
+using System.Threading;
+using System.Threading.Tasks;
+using ZprtNextGen.Core.Updates;
+
+namespace ZprtNextGen.App.Tests.Fakes;
+
+/// <summary>Фейковое обновление программы для тестов ViewModel.</summary>
+public sealed class FakeAppUpdater : IAppUpdater
+{
+    public AppUpdatePlan Plan = new(@"C:\temp\ZPRT_Update.cmd", @"C:\temp\ZprtNextGen.exe", @"C:\app\ZprtNextGen.exe");
+    public AppUpdatePlan? LastPrepared;
+    public bool Launched;
+    public AppUpdatePlan? LaunchedPlan;
+
+    public Task<AppUpdatePlan> PrepareAsync(ReleaseInfo release, string appDirectory,
+        IProgress<string>? progress, CancellationToken ct)
+    {
+        LastPrepared = new AppUpdatePlan(Plan.ScriptPath, Plan.NewExecutablePath, Plan.TargetExecutablePath);
+        return Task.FromResult(Plan);
+    }
+
+    public void Launch(AppUpdatePlan plan)
+    {
+        Launched = true;
+        LaunchedPlan = plan;
+    }
+}
