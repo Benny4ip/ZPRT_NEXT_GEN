@@ -87,7 +87,7 @@ public partial class App : Application
         var connectivity = ConnectivityService.CreateDefault();
         var engineProcess = new EngineProcessManager();
         var autostart = new ScheduledTaskAutostart(Environment.ProcessPath ?? string.Empty);
-        var logger = new AppLogger(Path.Combine(appData, "logs"));
+        var logger = new AppLogger(Path.Combine(appData, "ZPRT_NEXT_GEN", "logs"));
         var dispatcher = new WpfDispatcher();
 
         // Глобальные обработчики необработанных исключений: вместо молчаливого вылета
@@ -102,7 +102,9 @@ public partial class App : Application
             {
                 var ex = args.Exception;
                 logger.Error($"Необработанное исключение WPF: {ex}", ex);
-                MessageBox.Show($"ZPRT NEXT GEN stopped working:\n{ex.GetType().Name}: {ex.Message}\n\nSee logs for details.", "ZPRT NEXT GEN — ошибка",
+                var root = ex.GetBaseException();
+                var detail = ReferenceEquals(root, ex) ? ex.Message : $"{ex.Message}\n\nПричина: {root.Message}";
+                MessageBox.Show($"ZPRT NEXT GEN stopped working:\n{ex.GetType().Name}: {detail}\n\nПодробности в журнале:\n{Path.Combine(appData, "ZPRT_NEXT_GEN", "logs")}", "ZPRT NEXT GEN — ошибка",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally

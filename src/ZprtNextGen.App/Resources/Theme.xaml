@@ -222,6 +222,74 @@
     </Setter>
   </Style>
 
+  <!-- Полоса прокрутки тёмной темы. -->
+  <Style x:Key="DarkScrollBar" TargetType="ScrollBar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ScrollBar">
+          <Grid Background="{TemplateBinding Background}">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+              <Track.DecreaseRepeatButton>
+                <RepeatButton Background="Transparent" BorderThickness="0" />
+              </Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton>
+                <RepeatButton Background="Transparent" BorderThickness="0" />
+              </Track.IncreaseRepeatButton>
+              <Track.Thumb>
+                <Thumb x:Name="Thumb" Background="{StaticResource Brush.ScrollbarThumb}" BorderThickness="0" />
+              </Track.Thumb>
+            </Track>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Thumb" Property="Background" Value="{StaticResource Brush.ScrollbarThumbHover}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Область прокрутки тёмной темы. -->
+  <Style x:Key="DarkScrollViewer" TargetType="ScrollViewer">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ScrollViewer">
+          <Grid Background="{TemplateBinding Background}">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                    Grid.Column="0" Grid.Row="0"
+                                    Margin="{TemplateBinding Padding}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                    CanHorizontallyScroll="False"
+                                    CanVerticallyScroll="True" />
+            <ScrollBar x:Name="PART_VerticalScrollBar"
+                       Grid.Column="1" Grid.Row="0"
+                       Orientation="Vertical"
+                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                       ViewportSize="{TemplateBinding ViewportHeight}"
+                       Maximum="{TemplateBinding ScrollableHeight}"
+                       Minimum="0"
+                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                       Style="{StaticResource DarkScrollBar}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- Элемент выпадающего поля. -->
   <Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
     <Setter Property="Background" Value="Transparent" />
@@ -331,74 +399,6 @@
                 </ScrollViewer>
               </Border>
             </Popup>
-          </Grid>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
-  </Style>
-
-  <!-- Полоса прокрутки тёмной темы. -->
-  <Style x:Key="DarkScrollBar" TargetType="ScrollBar">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Width" Value="10" />
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="ScrollBar">
-          <Grid Background="{TemplateBinding Background}">
-            <Track x:Name="PART_Track" IsDirectionReversed="True">
-              <Track.DecreaseRepeatButton>
-                <RepeatButton Background="Transparent" BorderThickness="0" />
-              </Track.DecreaseRepeatButton>
-              <Track.IncreaseRepeatButton>
-                <RepeatButton Background="Transparent" BorderThickness="0" />
-              </Track.IncreaseRepeatButton>
-              <Track.Thumb>
-                <Thumb x:Name="Thumb" Background="{StaticResource Brush.ScrollbarThumb}" BorderThickness="0" />
-              </Track.Thumb>
-            </Track>
-          </Grid>
-          <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Thumb" Property="Background" Value="{StaticResource Brush.ScrollbarThumbHover}" />
-            </Trigger>
-          </ControlTemplate.Triggers>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
-  </Style>
-
-  <!-- Область прокрутки тёмной темы. -->
-  <Style x:Key="DarkScrollViewer" TargetType="ScrollViewer">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="ScrollViewer">
-          <Grid Background="{TemplateBinding Background}">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="*" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
-                                    Grid.Column="0" Grid.Row="0"
-                                    Margin="{TemplateBinding Padding}"
-                                    Content="{TemplateBinding Content}"
-                                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                                    CanContentScroll="{TemplateBinding CanContentScroll}"
-                                    CanHorizontallyScroll="False"
-                                    CanVerticallyScroll="True" />
-            <ScrollBar x:Name="PART_VerticalScrollBar"
-                       Grid.Column="1" Grid.Row="0"
-                       Orientation="Vertical"
-                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                       ViewportSize="{TemplateBinding ViewportHeight}"
-                       Maximum="{TemplateBinding ScrollableHeight}"
-                       Minimum="0"
-                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
-                       Style="{StaticResource DarkScrollBar}" />
           </Grid>
         </ControlTemplate>
       </Setter.Value>

@@ -280,7 +280,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public void Toggle_ForeignProcessAndUserAccepts_DoesNotStart()
+    public void Toggle_ForeignProcessAndUserAccepts_KillsForeignAndStarts()
     {
         var (vm, _, engineProcess, _, _, _) = CreateVm(BuildDependencies(
             confirm: new ConfirmAlways(true).Invoke));
@@ -290,8 +290,9 @@ public class MainViewModelTests
         vm.InitializeAsync().GetAwaiter().GetResult();
         vm.ToggleAsync().GetAwaiter().GetResult();
 
-        Assert.Empty(engineProcessFake.Starts);
-        Assert.Equal("Остановите обход вручную", vm.StatusText);
+        Assert.Equal(1, engineProcessFake.KillForeignCalls);
+        var start = Assert.Single(engineProcessFake.Starts);
+        Assert.EndsWith("winws.exe", start.ExecutablePath, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

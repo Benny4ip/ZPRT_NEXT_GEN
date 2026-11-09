@@ -47,6 +47,14 @@ public sealed class FakeEngineProcess : IEngineProcessManager
 
     public bool IsForeignInstanceRunning() => IsForeignInstanceRunningResult;
 
+    public int KillForeignCalls { get; private set; }
+
+    public void KillForeignInstances()
+    {
+        KillForeignCalls++;
+        IsForeignInstanceRunningResult = false;
+    }
+
     public void RaiseOutput(string line) => OutputReceived(this, line);
 
     public void Dispose()

@@ -101,6 +101,31 @@ public class EngineProcessManagerTests
     }
 
     [Fact]
+    public async Task KillForeignInstances_KillsCopiedExe()
+    {
+        var dir = TempDir();
+        var copiedExe = Path.Combine(dir, "zprt-test-kill.exe");
+        File.Copy(Exe, copiedExe);
+
+        using var foreign = global::System.Diagnostics.Process.Start(new ProcessStartInfo
+        {
+            FileName = copiedExe,
+            Arguments = @"/c ping -n 30 127.0.0.1 >nul",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        })!;
+
+        using var manager = new EngineProcessManager("zprt-test-kill");
+        Assert.True(manager.IsForeignInstanceRunning());
+
+        manager.KillForeignInstances();
+
+        await foreign.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(foreign.HasExited);
+        Assert.False(manager.IsForeignInstanceRunning());
+    }
+
+    [Fact]
     public async Task Start_MissingExecutable_Throws()
     {
         var missingPath = Path.Combine(TempDir(), "winws.exe");

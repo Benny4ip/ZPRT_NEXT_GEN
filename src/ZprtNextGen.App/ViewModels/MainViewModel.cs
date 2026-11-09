@@ -323,7 +323,11 @@ public partial class MainViewModel : INotifyPropertyChanged
                 }
 
                 _engineProcess.KillForeignInstances();
-                await Task.Delay(1000);
+
+                // Ждём, пока чужой процесс действительно завершится (обычно < 300 мс),
+                // иначе winws не сможет захватить WinDivert.
+                for (var attempt = 0; attempt < 30 && _engineProcess.IsForeignInstanceRunning(); attempt++)
+                    await Task.Delay(100);
             }
 
             var preset = _selectedPreset
