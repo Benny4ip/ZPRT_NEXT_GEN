@@ -66,13 +66,16 @@ public sealed class EngineUpdater : IEngineUpdater
 
                 progress?.Report("Остановка движка...");
                 await stopEngine();
+                // Даём WinDivert/драйверу освободить файлы после завершения процессов.
+                await Task.Delay(800, ct);
 
                 var oldVersion = ReadOldVersion(presetsPath);
 
                 if (engineRootExisted)
                 {
                     backupRoot = engineRoot + ".backup." + DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss");
-                    Directory.Move(engineRoot, backupRoot);
+                    PrepareDirectoryForMove(engineRoot);
+                    MoveDirectoryWithRetry(engineRoot, backupRoot);
                 }
 
                 try
@@ -85,19 +88,31 @@ public sealed class EngineUpdater : IEngineUpdater
                     PresetCatalogWriter.Save(catalog, presetsPath);
 
                     if (backupRoot is not null)
-                        Directory.Delete(backupRoot, recursive: true);
+                        TryDeleteDirectory(backupRoot);
 
                     progress?.Report("Готово.");
                     return new EngineUpdateResult(true, oldVersion, release.Tag, catalog.Presets.Count, null);
+                }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                {
+                    // Откат: вернуть старый движок на место.
+                    if (backupRoot is not null && Directory.Exists(backupRoot))
+                    {
+                        TryDeleteDirectory(engineRoot);
+                        try { Directory.Move(backupRoot, engineRoot); } catch { /* лучшая попытка отката */ }
+                        backupRoot = null;
+                    }
+                    throw new IOException(
+                        "Не удалось обновить файлы движка (возможно, WinDivert/драйвер ещё используется). " +
+                        "Закройте другие экземпляры запрета/winws и попробуйте снова. " + ex.Message, ex);
                 }
                 catch
                 {
                     // Откат: вернуть старый движок на место.
                     if (backupRoot is not null && Directory.Exists(backupRoot))
                     {
-                        if (Directory.Exists(engineRoot))
-                            Directory.Delete(engineRoot, recursive: true);
-                        Directory.Move(backupRoot, engineRoot);
+                        TryDeleteDirectory(engineRoot);
+                        try { Directory.Move(backupRoot, engineRoot); } catch { }
                         backupRoot = null;
                     }
                     throw;
@@ -133,6 +148,50 @@ public sealed class EngineUpdater : IEngineUpdater
         return null;
     }
 
+    private static void PrepareDirectoryForMove(string path)
+    {
+        try
+        {
+            foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try { File.SetAttributes(file, FileAttributes.Normal); } catch { }
+            }
+        }
+        catch { /* лучшая попытка */ }
+    }
+
+    private static void MoveDirectoryWithRetry(string source, string target)
+    {
+        Exception? last = null;
+        for (var i = 0; i < 4; i++)
+        {
+            try
+            {
+                Directory.Move(source, target);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                last = ex;
+                Thread.Sleep(500 * (i + 1));
+                PrepareDirectoryForMove(source);
+            }
+        }
+        throw last ?? new IOException($"Не удалось переместить '{source}'.");
+    }
+
+    private static void TryDeleteDirectory(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            return;
+        try
+        {
+            PrepareDirectoryForMove(path);
+            Directory.Delete(path, recursive: true);
+        }
+        catch { /* лучшая попытка */ }
+    }
+
     private static void CopyDirectory(string source, string target)
     {
         foreach (var dir in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
@@ -144,7 +203,9 @@ public sealed class EngineUpdater : IEngineUpdater
         foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
         {
             var rel = Path.GetRelativePath(source, file);
-            File.Copy(file, Path.Combine(target, rel), overwrite: true);
+            var dest = Path.Combine(target, rel);
+            try { if (File.Exists(dest)) File.SetAttributes(dest, FileAttributes.Normal); } catch { }
+            File.Copy(file, dest, overwrite: true);
         }
     }
 }

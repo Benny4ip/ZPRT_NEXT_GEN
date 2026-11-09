@@ -739,7 +739,12 @@ public partial class MainViewModel : INotifyPropertyChanged
                     release,
                     _engine.EngineRoot,
                     _maintenance.PresetsPath,
-                    () => _engineProcess.StopAsync(CancellationToken.None),
+                    async () =>
+                    {
+                        await _engineProcess.StopAsync(CancellationToken.None);
+                        _engineProcess.KillForeignInstances();
+                        await Task.Delay(300);
+                    },
                     new Progress<string>(msg => _dispatcher.Post(() => progressWindow?.SetStatus(msg))),
                     CancellationToken.None);
 
@@ -811,7 +816,12 @@ public partial class MainViewModel : INotifyPropertyChanged
                 release,
                 _engine.EngineRoot,
                 _maintenance.PresetsPath,
-                () => _engineProcess.StopAsync(CancellationToken.None),
+                async () =>
+                {
+                    await _engineProcess.StopAsync(CancellationToken.None);
+                    _engineProcess.KillForeignInstances();
+                    await Task.Delay(300);
+                },
                 new Progress<string>(msg => _dispatcher.Post(() => progressWindow.SetStatus(msg))),
                 CancellationToken.None);
 
