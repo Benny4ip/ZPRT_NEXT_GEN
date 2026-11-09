@@ -24,7 +24,7 @@
             <!-- Сброс состояния, оставленного другими раскадровками. -->
             <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity" To="0.14" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="PulseGlow" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
-            <DoubleAnimation Storyboard.TargetName="AccentLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
+            <DoubleAnimation Storyboard.TargetName="ProgressArc" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="EndDotLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="ErrorFlash" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.4" />
@@ -45,7 +45,7 @@
                              From="0.18" To="0.34" Duration="0:0:1" AutoReverse="True" RepeatBehavior="Forever" />
             <!-- Сброс «подключённого» и «ошибочного» состояния. -->
             <DoubleAnimation Storyboard.TargetName="PulseGlow" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
-            <DoubleAnimation Storyboard.TargetName="AccentLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
+            <DoubleAnimation Storyboard.TargetName="ProgressArc" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="EndDotLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="ErrorFlash" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.4" />
@@ -82,7 +82,7 @@
                              To="0.34" Duration="0:0:1.2" />
             <DoubleAnimation Storyboard.TargetName="PulseGlow" Storyboard.TargetProperty="Opacity"
                              From="0.15" To="0.45" Duration="0:0:2.4" AutoReverse="True" RepeatBehavior="Forever" />
-            <DoubleAnimation Storyboard.TargetName="AccentLayer" Storyboard.TargetProperty="Opacity"
+            <DoubleAnimation Storyboard.TargetName="ProgressArc" Storyboard.TargetProperty="Opacity"
                              To="0.75" Duration="0:0:1.2" />
             <DoubleAnimation Storyboard.TargetName="EndDotLayer" Storyboard.TargetProperty="Opacity"
                              To="1" Duration="0:0:1.2" />
@@ -100,7 +100,7 @@
             <DoubleAnimation Storyboard.TargetName="PulseLine" Storyboard.TargetProperty="Opacity" To="0.35" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity" To="0.18" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="PulseGlow" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
-            <DoubleAnimation Storyboard.TargetName="AccentLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
+            <DoubleAnimation Storyboard.TargetName="ProgressArc" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="EndDotLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.4" />
             <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.4" />

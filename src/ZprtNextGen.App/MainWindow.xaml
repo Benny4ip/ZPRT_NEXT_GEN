@@ -62,11 +62,11 @@
             </StackPanel>
 
             <Button Grid.Column="2" Content="&#x2699;"
-                    FontFamily="Segoe UI Symbol" FontSize="20"
+                    FontFamily="Segoe UI Symbol" FontSize="26"
                     Style="{StaticResource IconButton}"
                     Click="OnSettings"
                     VerticalAlignment="Center" HorizontalAlignment="Right"
-                    Margin="12,0,16,0" ToolTip="Настройки" />
+                    Width="48" Height="48" Margin="16,0,20,0" ToolTip="Настройки" />
         </Grid>
 
         <!-- Пресеты: сгруппированный селектор (Task 16). -->
@@ -132,7 +132,7 @@
                                Foreground="{StaticResource Brush.Text}" Margin="0,0,0,8" />
                     <Button DockPanel.Dock="Bottom" Content="Открыть папку логов"
                             Command="{Binding OpenLogsCommand}" Style="{StaticResource SecondaryButton}"
-                            HorizontalAlignment="Right" MinWidth="110" Padding="10,4" />
+                            HorizontalAlignment="Right" MinWidth="110" Padding="10,4" Margin="0,12,0,0" />
                     <ListBox x:Name="LogList" ItemsSource="{Binding LogLines}"
                              FontFamily="Cascadia Mono, Consolas" FontSize="12"
                              Style="{StaticResource LogListBox}" />
