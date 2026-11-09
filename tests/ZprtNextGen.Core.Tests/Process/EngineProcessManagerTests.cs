@@ -135,4 +135,14 @@ public class EngineProcessManagerTests
         Assert.True(ex is FileNotFoundException or System.ComponentModel.Win32Exception, $"Unexpected exception type: {ex.GetType()}");
         Assert.Equal(EngineStatus.Error, manager.Status);
     }
+
+    [Fact]
+    public async Task StopAsync_WhenNoOwnedProcess_IsIdempotent()
+    {
+        using var manager = new EngineProcessManager();
+        await manager.StopAsync(CancellationToken.None);
+        await manager.StopAsync(CancellationToken.None);
+        Assert.Equal(EngineStatus.Stopped, manager.Status);
+        Assert.Null(manager.OwnedProcessId);
+    }
 }

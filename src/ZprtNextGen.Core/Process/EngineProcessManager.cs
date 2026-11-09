@@ -41,9 +41,8 @@ public interface IEngineProcessManager : IDisposable
     /// <param name="ct">Токен отмены.</param>
     Task StartAsync(string executablePath, string arguments, string workingDirectory, CancellationToken ct);
 
-    /// <summary>Остановить принадлежащий менеджеру процесс.</summary>
+    /// <summary>Остановить принадлежащий менеджеру процесс. Идемпотентно: если процесса нет — не бросает.</summary>
     /// <param name="ct">Токен отмены.</param>
-    /// <exception cref="InvalidOperationException">Чужий процесс (PID не совпадает) или процесса нет.</exception>
     Task StopAsync(CancellationToken ct);
 
     /// <summary>
@@ -170,11 +169,17 @@ public class EngineProcessManager : IEngineProcessManager
 
     public async Task StopAsync(CancellationToken ct)
     {
-        Process process;
+        Process? process;
         lock (_sync)
         {
             if (_process is null || !_ownedProcessId.HasValue)
-                throw new InvalidOperationException("No owned engine process to stop.");
+            {
+                // Нечего останавливать — идемпотентно (важно для обновления, когда движок уже остановлен).
+                _status = EngineStatus.Stopped;
+                _ownedProcessId = null;
+                _process = null;
+                return;
+            }
             process = _process;
         }
 
