@@ -28,6 +28,7 @@ public partial class App : Application
     private TrayService? _tray;
     private MainViewModel? _vm;
     private MainWindow? _mainWindow;
+    private EngineProcessManager? _engineProcess;
     private bool _vmShutdown;
     private bool _isHandlingException;
 
@@ -35,21 +36,22 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // 1. Один экземпляр приложения.
+        // 1. Права администратора (требуются для WinDivert). Проверяем раньше мьютекса:
+        //    создание Global\-мьютекса без нужных прав само может бросить исключение.
+        if (!SingleInstanceGuard.IsElevated())
+        {
+            MessageBox.Show("Запустите приложение от имени администратора", "ZPRT NEXT GEN",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown();
+            return;
+        }
+
+        // 2. Один экземпляр приложения.
         _guard = new SingleInstanceGuard("main");
         if (!_guard.IsOwner)
         {
             MessageBox.Show("ZPRT NEXT GEN уже запущен", "ZPRT NEXT GEN",
                 MessageBoxButton.OK, MessageBoxImage.Information);
-            Shutdown();
-            return;
-        }
-
-        // 2. Права администратора (требуются для WinDivert).
-        if (!SingleInstanceGuard.IsElevated())
-        {
-            MessageBox.Show("Запустите приложение от имени администратора", "ZPRT NEXT GEN",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
             Shutdown();
             return;
         }
@@ -75,7 +77,21 @@ public partial class App : Application
         }
         else
         {
-            catalog = PresetCatalogLoader.Load(catalogPath);
+            try
+            {
+                catalog = PresetCatalogLoader.Load(catalogPath);
+            }
+            catch (Exception ex)
+            {
+                // Повреждённый каталог не должен мешать запуску: показываем ошибку и работаем без пресетов.
+                logger.Error($"Не удалось загрузить каталог пресетов '{catalogPath}': {ex.Message}", ex);
+                MessageBox.Show(
+                    $"Не удалось загрузить каталог пресетов:\n{ex.Message}",
+                    "ZPRT NEXT GEN",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                catalog = new PresetCatalog(0, string.Empty, string.Empty, [], []);
+            }
         }
 
         // 6. Движок.
@@ -92,7 +108,8 @@ public partial class App : Application
 
         // 7. Сервисы.
         var connectivity = ConnectivityService.CreateDefault();
-        var engineProcess = new EngineProcessManager();
+        _engineProcess = new EngineProcessManager();
+        var engineProcess = _engineProcess;
         var autostart = new ScheduledTaskAutostart(Environment.ProcessPath ?? string.Empty);
         var dispatcher = new WpfDispatcher();
 
@@ -173,11 +190,11 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            logger?.Error($"Не удалось загрузить иконку приложения: {ex.Message}", ex);
+            logger.Error($"Не удалось загрузить иконку приложения: {ex.Message}", ex);
         }
 
         _tray = new TrayService(
-            icon!,
+            icon,
             toggle: () =>
             {
                 try
@@ -215,8 +232,9 @@ public partial class App : Application
             _vmShutdown = true;
             try
             {
-                // Не блокируем UI-поток при выходе: процесс всё равно завершается.
-                _ = _vm.ShutdownAsync(_vm.IsRunning);
+                // Даём остановке движка завершиться, но не блокируем выход дольше нескольких секунд:
+                // даже если не успели, Dispose ниже завершит принадлежащий нам процесс.
+                _ = Task.Run(() => _vm.ShutdownAsync(_vm.IsRunning)).Wait(TimeSpan.FromSeconds(3));
             }
             catch
             {
@@ -224,6 +242,7 @@ public partial class App : Application
             }
         }
 
+        _engineProcess?.Dispose();
         _tray?.Dispose();
         _guard?.Dispose();
 

@@ -18,18 +18,22 @@ public sealed class TrayService : IDisposable
 
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly Icon _icon;
+    private readonly bool _ownsIcon;
     private readonly Action _toggle;
     private readonly Action _show;
     private readonly Action _exit;
 
     /// <summary>Создать трей-иконку и действия меню.</summary>
-    /// <param name="icon">Иконка трея.</param>
+    /// <param name="icon">Иконка трея. Если <c>null</c> или не загрузилась — используется системная.</param>
     /// <param name="toggle">Действие «включить/выключить обход» (вызывается без ожидания, с try/catch снаружи).</param>
     /// <param name="show">Действие «показать главное окно».</param>
     /// <param name="exit">Действие «инициировать выход из приложения».</param>
-    public TrayService(Icon icon, Action toggle, Action show, Action exit)
+    public TrayService(Icon? icon, Action toggle, Action show, Action exit)
     {
-        _icon = icon ?? throw new ArgumentNullException(nameof(icon));
+        // Без иконки NotifyIcon молча не появляется (а при нулевой иконке может упасть).
+        // Поэтому всегда подставляем системную, а пользовательскую освобождаем только если она наша.
+        _icon = icon ?? SystemIcons.Application;
+        _ownsIcon = icon is not null;
         _toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
         _show = show ?? throw new ArgumentNullException(nameof(show));
         _exit = exit ?? throw new ArgumentNullException(nameof(exit));
@@ -76,6 +80,7 @@ public sealed class TrayService : IDisposable
     {
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
-        _icon.Dispose();
+        if (_ownsIcon)
+            _icon.Dispose();
     }
 }

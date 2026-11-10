@@ -345,6 +345,22 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public void ToggleAutostart_ParameterOn_EnablesAndPersists()
+    {
+        var autostart = new FakeAutostart();
+        var (vm, store, _, _, _, _) = CreateVm(BuildDependencies(autostart: autostart));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+        Assert.False(vm.IsAutostartEnabled);
+
+        vm.ToggleAutostartCommand.Execute(true);
+
+        Assert.True(vm.IsAutostartEnabled);
+        Assert.True(autostart.Enabled);
+        Assert.Equal(1, autostart.EnableCalls);
+        Assert.True(store.Saved.Last().Autostart);
+    }
+
+    [Fact]
     public void HandleError_RaisesErrorRaisedWithMessage()
     {
         var (vm, _, _, _, _, _) = CreateVm(BuildDependencies(
@@ -437,7 +453,7 @@ public class MainViewModelTests
         Assert.Equal("Альтернатива 5", vm.PresetTestResults[1].Name);
         Assert.True(vm.PresetTestResults[1].Success);
         Assert.Equal(120, vm.PresetTestResults[1].ElapsedMs);
-        Assert.Equal(2, tester.LastPresets.Count);
+        Assert.Equal(2, tester.LastPresets!.Count);
         Assert.All(tester.LastPresets, p => Assert.True(p.Id.StartsWith("general-alt")));
         Assert.Equal(@"C:\E", tester.LastEngineRoot);
         Assert.False(vm.IsTestingPresets);

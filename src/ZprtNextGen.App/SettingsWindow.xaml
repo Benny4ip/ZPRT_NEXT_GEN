@@ -79,7 +79,9 @@
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"
                                    Margin="0,8,12,8" HorizontalAlignment="Stretch" />
                         <ToggleButton Grid.Row="0" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
-                                      IsChecked="{Binding IsAutostartEnabled, Mode=TwoWay}"
+                                      IsChecked="{Binding IsAutostartEnabled, Mode=OneWay}"
+                                      Command="{Binding ToggleAutostartCommand}"
+                                      CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}"
                                       VerticalAlignment="Center" HorizontalAlignment="Right"
                                       Margin="0,8,0,8" />
 

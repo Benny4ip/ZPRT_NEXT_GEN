@@ -5,7 +5,7 @@ namespace ZprtNextGen.App.Tests.Fakes;
 /// <summary>Фейковый сервис автозапуска с настраиваемыми исключениями.</summary>
 public sealed class FakeAutostart : IAutostartService
 {
-    public bool Enabled { get; private set; }
+    public bool Enabled { get; set; }
 
     public Exception? EnableException { get; set; }
 
@@ -15,21 +15,23 @@ public sealed class FakeAutostart : IAutostartService
 
     public int DisableCalls { get; private set; }
 
-    public bool IsEnabled() => Enabled;
+    public Task<bool> IsEnabledAsync(CancellationToken ct = default) => Task.FromResult(Enabled);
 
-    public void Enable()
+    public Task EnableAsync(CancellationToken ct = default)
     {
         if (EnableException is not null)
             throw EnableException;
         Enabled = true;
         EnableCalls++;
+        return Task.CompletedTask;
     }
 
-    public void Disable()
+    public Task DisableAsync(CancellationToken ct = default)
     {
         if (DisableException is not null)
             throw DisableException;
         Enabled = false;
         DisableCalls++;
+        return Task.CompletedTask;
     }
 }

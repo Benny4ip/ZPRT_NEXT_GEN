@@ -15,6 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private bool _exiting = false;
+    private bool _shutdownInProgress;
 
     /// <summary>Создать главное окно.</summary>
     /// <param name="viewModel">Модель представления (обязательна).</param>
@@ -65,6 +66,10 @@ public partial class MainWindow : Window
 
     private async void OnClosing(object sender, CancelEventArgs e)
     {
+        // Повторный Close() после ожидания остановки движка: просто закрываемся.
+        if (_shutdownInProgress)
+            return;
+
         if (_viewModel.MinimizeToTray && !_exiting)
         {
             e.Cancel = true;
@@ -92,7 +97,19 @@ public partial class MainWindow : Window
             stopEngine = result == MessageBoxResult.Yes;
         }
 
-        await _viewModel.ShutdownAsync(stopEngine);
+        // Закрытие откладываем до завершения остановки движка: иначе окно и процесс
+        // приложения исчезнут раньше, чем winws будет остановлен.
+        e.Cancel = true;
+        _shutdownInProgress = true;
+        try
+        {
+            await _viewModel.ShutdownAsync(stopEngine);
+        }
+        finally
+        {
+            _exiting = true;
+            Close();
+        }
     }
 
     private SettingsWindow? _settingsWindow;

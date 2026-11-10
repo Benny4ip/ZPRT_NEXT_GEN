@@ -126,7 +126,8 @@ public partial class MainViewModel : INotifyPropertyChanged
         _testConnectionCommand = new AsyncRelayCommand(async p => await TestConnectionAsync(p as string), () => !IsBusy);
         _selectPresetCommand = new RelayCommand(OnSelectPreset, _ => !IsBusy);
         _openLogsCommand = new RelayCommand(_ => OnOpenLogs());
-        _toggleAutostartCommand = new AsyncRelayCommand(async _ => await ToggleAutostartAsync(), () => !IsBusy);
+        _toggleAutostartCommand = new AsyncRelayCommand(
+            async parameter => await ToggleAutostartAsync(parameter as bool?), () => !IsBusy);
         _exitCommand = new RelayCommand(_ => Application.Current?.Shutdown(), _ => Application.Current is not null);
         _checkUpdatesCommand = new AsyncRelayCommand(async _ => await CheckUpdatesAsync(), () => !IsMaintenanceBusy);
         _updateEngineCommand = new AsyncRelayCommand(async _ => await UpdateEngineAsync(), () => !IsMaintenanceBusy && CanStart);
@@ -369,7 +370,7 @@ public partial class MainViewModel : INotifyPropertyChanged
 
             EnginePath = _settings.EnginePath ?? string.Empty;
             GameFilter = _settings.GameFilter;
-            IsAutostartEnabled = _autostart.IsEnabled();
+            IsAutostartEnabled = await _autostart.IsEnabledAsync();
             MinimizeToTray = _settings.MinimizeToTray;
             ReduceMotion = _settings.ReduceMotion;
 
@@ -930,9 +931,22 @@ public partial class MainViewModel : INotifyPropertyChanged
                 presets,
                 _engine.EngineRoot,
                 GameFilter,
-                new Progress<PresetTestProgress>(p =>
+                new SynchronousProgress<PresetTestProgress>(p =>
                 {
                     PresetTestProgress = (double)p.Index / p.Total * 100;
+
+                    // Показываем результаты по мере готовности: при отмене пользователь
+                    // всё равно увидит уже проверенные обходы.
+                    if (p.Result is not null)
+                    {
+                        var sorted = PresetTestResults
+                            .Append(p.Result)
+                            .OrderBy(r => r.ElapsedMs)
+                            .ToList();
+                        PresetTestResults.Clear();
+                        foreach (var item in sorted)
+                            PresetTestResults.Add(item);
+                    }
                 }),
                 _testCts.Token);
 
@@ -945,7 +959,9 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
         catch (OperationCanceledException)
         {
-            PresetTestStatus = "Проверка отменена пользователем.";
+            PresetTestStatus = PresetTestResults.Count > 0
+                ? $"Проверка отменена. Успешно проверено: {PresetTestResults.Count(r => r.Success)} из {PresetTestResults.Count}."
+                : "Проверка отменена пользователем.";
         }
         catch (Exception ex)
         {
@@ -1098,16 +1114,18 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task ToggleAutostartAsync()
+    private async Task ToggleAutostartAsync(bool? requested)
     {
-        var enable = !_isAutostartEnabled;
+        // Переключатель в XAML привязан односторонне и передаёт целевое состояние параметром команды:
+        // так исключена инверсия «включено/выключено» из-за TwoWay-обновления IsChecked до вызова команды.
+        var enable = requested ?? !_isAutostartEnabled;
 
         try
         {
             if (enable)
-                _autostart.Enable();
+                await _autostart.EnableAsync();
             else
-                _autostart.Disable();
+                await _autostart.DisableAsync();
 
             IsAutostartEnabled = enable;
             _settings = _settings with { Autostart = enable };
@@ -1115,11 +1133,36 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            IsAutostartEnabled = !enable;
-            _settings = _settings with { Autostart = IsAutostartEnabled };
+            // Переключатель уже визуально изменился — возвращаем фактическое состояние задачи.
+            var actual = false;
+            try
+            {
+                actual = await _autostart.IsEnabledAsync();
+            }
+            catch
+            {
+                // Если и проверка не удалась, оставляем прежнее значение.
+                actual = _isAutostartEnabled;
+            }
+
+            _isAutostartEnabled = actual;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAutostartEnabled)));
+            _settings = _settings with { Autostart = actual };
             SaveSettings();
             HandleError(ex);
         }
     }
+}
+
+/// <summary>Синхронная реализация <see cref="IProgress{T}"/>: обработчик вызывается в потоке отчёта.</summary>
+/// <remarks>
+/// <see cref="Progress{T}"/> публикует вызовы через контекст синхронизации, из-за чего результаты
+/// теста обходов могли приходить после завершения метода и дублироваться. Здесь важен порядок.
+/// </remarks>
+internal sealed class SynchronousProgress<T>(Action<T> handler) : IProgress<T>
+{
+    private readonly Action<T> _handler = handler ?? throw new ArgumentNullException(nameof(handler));
+
+    public void Report(T value) => _handler(value);
 }
 
