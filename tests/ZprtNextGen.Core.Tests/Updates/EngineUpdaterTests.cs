@@ -141,4 +141,69 @@ public class EngineUpdaterTests
         Assert.Equal("old-winws", File.ReadAllText(Path.Combine(engineRoot.FullName, "bin", "winws.exe")));
         Assert.False(Directory.GetDirectories(engineRoot.Parent!.FullName, "engine.backup.*").Any());
     }
+
+    [Fact]
+    public async Task UpdateAsync_ImportFails_RestoresOldEngineWithoutHybrid()
+    {
+        var work = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var engineRoot = OldEngine(Path.Combine(work, "engine"));
+        File.WriteAllText(Path.Combine(engineRoot.FullName, "old-marker.txt"), "old");
+        var presetsPath = Path.Combine(work, "presets", "presets.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(presetsPath)!);
+        File.WriteAllText(presetsPath, "{ }");
+
+        // Движок полный, но без general*.bat: копирование пройдёт, импорт пресетов упадёт.
+        var zip = MakeZip(archive =>
+        {
+            foreach (var (name, content) in new[]
+                     {
+                         ("bin/winws.exe", "new-winws"),
+                         ("bin/WinDivert.dll", "dll"),
+                         ("bin/WinDivert64.sys", "sys"),
+                         ("lists/list-general.txt", "list"),
+                         ("new-marker.txt", "new"),
+                     })
+            {
+                var entry = archive.CreateEntry(name);
+                using var s = entry.Open();
+                using var w = new StreamWriter(s);
+                w.Write(content);
+            }
+        });
+
+        var downloader = new FakeDownloader(zip);
+        var release = new ReleaseInfo("9.9.9", "9.9.9", null, new[]
+        {
+            new ReleaseAsset("a.zip", "https://x/a.zip", zip.Length)
+        });
+        var sut = new EngineUpdater(downloader);
+
+        await Assert.ThrowsAsync<IOException>(() =>
+            sut.UpdateAsync(release, engineRoot.FullName + Path.DirectorySeparatorChar, presetsPath,
+                () => Task.CompletedTask, null, CancellationToken.None));
+
+        Assert.Equal("old-winws", File.ReadAllText(Path.Combine(engineRoot.FullName, "bin", "winws.exe")));
+        Assert.True(File.Exists(Path.Combine(engineRoot.FullName, "old-marker.txt")));
+        Assert.False(File.Exists(Path.Combine(engineRoot.FullName, "new-marker.txt")),
+            "после отката не должно оставаться файлов нового движка");
+        Assert.False(Directory.GetDirectories(engineRoot.Parent!.FullName, "engine.backup.*").Any());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RefusesToReplaceApplicationDirectory()
+    {
+        var downloader = new FakeDownloader(Array.Empty<byte>());
+        var release = new ReleaseInfo("9.9.9", "9.9.9", null, new[]
+        {
+            new ReleaseAsset("a.zip", "https://x/a.zip", 1)
+        });
+        var sut = new EngineUpdater(downloader);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.UpdateAsync(release, AppContext.BaseDirectory,
+                Path.Combine(Path.GetTempPath(), "presets.json"),
+                () => Task.CompletedTask, null, CancellationToken.None));
+
+        Assert.Null(downloader.LastUrl); // до скачивания дело не дошло
+    }
 }

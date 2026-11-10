@@ -139,6 +139,6 @@ public static class PresetNaming
     internal static int AltNumber(string id, string prefix)
     {
         var rest = id[prefix.Length..];
-        return rest.Length == 0 ? 1 : int.Parse(rest);
+        return rest.Length == 0 ? 1 : (int.TryParse(rest, out var n) ? n : 1);
     }
 }

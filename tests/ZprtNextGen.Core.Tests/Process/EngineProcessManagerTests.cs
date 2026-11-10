@@ -145,4 +145,26 @@ public class EngineProcessManagerTests
         Assert.Equal(EngineStatus.Stopped, manager.Status);
         Assert.Null(manager.OwnedProcessId);
     }
+
+    [Fact]
+    public async Task OnExited_FromPreviousProcess_DoesNotMarkCurrentStopped()
+    {
+        var workDir = TempDir();
+        using var manager = new EngineProcessManager();
+
+        await manager.StartAsync(Exe, @"/c ping -n 30 127.0.0.1 >nul", workDir, CancellationToken.None);
+
+        // Событие Exited от чужого (старого) процесса не должно сбрасывать текущий.
+        // Раньше OnExited сравнивал PID с _process.Id и помечал новый процесс остановленным.
+        using var previous = global::System.Diagnostics.Process.GetCurrentProcess();
+        var onExited = typeof(EngineProcessManager).GetMethod(
+            "OnExited", global::System.Reflection.BindingFlags.Instance | global::System.Reflection.BindingFlags.NonPublic)!;
+        onExited.Invoke(manager, new object?[] { previous, EventArgs.Empty });
+
+        Assert.Equal(EngineStatus.Running, manager.Status);
+        Assert.NotNull(manager.OwnedProcessId);
+
+        await manager.StopAsync(CancellationToken.None);
+        Assert.Equal(EngineStatus.Stopped, manager.Status);
+    }
 }

@@ -8,7 +8,7 @@ public static class BatPresetParser
     private const string UnresolvedVariableRegex = @"%[A-Za-z_][A-Za-z0-9_]*%";
     private const string EscapeRegex = @"\^(.)";
 
-    private static readonly Regex StartLineMatcher = new(StartLineRegex, RegexOptions.CultureInvariant);
+    private static readonly Regex StartLineMatcher = new(StartLineRegex, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex UnresolvedVariableMatcher = new(UnresolvedVariableRegex, RegexOptions.CultureInvariant);
     private static readonly Regex EscapeMatcher = new(EscapeRegex, RegexOptions.CultureInvariant);
 
@@ -44,11 +44,12 @@ public static class BatPresetParser
             }
 
             arguments = EscapeMatcher.Replace(arguments, "$1");
+            // Переменные batch регистронезависимы — заменяем без учета регистра.
             arguments = arguments
-                .Replace("%BIN%", "{{BIN}}")
-                .Replace("%LISTS%", "{{LISTS}}")
-                .Replace("%GameFilterTCP%", "{{GameFilterTCP}}")
-                .Replace("%GameFilterUDP%", "{{GameFilterUDP}}");
+                .Replace("%BIN%", "{{BIN}}", StringComparison.OrdinalIgnoreCase)
+                .Replace("%LISTS%", "{{LISTS}}", StringComparison.OrdinalIgnoreCase)
+                .Replace("%GameFilterTCP%", "{{GameFilterTCP}}", StringComparison.OrdinalIgnoreCase)
+                .Replace("%GameFilterUDP%", "{{GameFilterUDP}}", StringComparison.OrdinalIgnoreCase);
 
             var unresolved = UnresolvedVariableMatcher.Match(arguments);
             if (unresolved.Success)

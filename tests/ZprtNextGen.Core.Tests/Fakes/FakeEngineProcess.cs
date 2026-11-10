@@ -15,6 +15,7 @@ public sealed class FakeEngineProcess : IEngineProcessManager
     public readonly List<(string ExecutablePath, string Arguments, string WorkingDirectory)> Starts = new();
     public int StopCalls;
     public int ThrowStartsRemaining;
+    public bool ForeignRunning { get; set; }
     public Exception? StartException = new InvalidOperationException("start failed (fake)");
 
     public Task StartAsync(string executablePath, string arguments, string workingDirectory, CancellationToken ct)
@@ -36,7 +37,7 @@ public sealed class FakeEngineProcess : IEngineProcessManager
         return Task.CompletedTask;
     }
 
-    public bool IsForeignInstanceRunning() => false;
+    public bool IsForeignInstanceRunning() => ForeignRunning;
     public void KillForeignInstances() { }
     public void Dispose() { }
 }

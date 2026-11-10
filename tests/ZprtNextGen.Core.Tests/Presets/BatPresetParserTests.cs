@@ -54,4 +54,18 @@ public class BatPresetParserTests
 
         Assert.NotNull(exception);
     }
+
+    [Fact]
+    public void Parse_LowercaseCommandAndVariables_AreResolved()
+    {
+        var batText = "sTaRt \"zapret: general\" /min \"%bin%winws.exe\" " +
+                      "--hostlist=\"%lists%list-general.txt\" --wf-tcp=%gamefiltertcp%";
+
+        var result = BatPresetParser.ParseArguments(batText, "general");
+
+        Assert.Contains("{{LISTS}}list-general.txt", result);
+        Assert.Contains("{{GameFilterTCP}}", result);
+        Assert.DoesNotContain("%bin%", result, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("%lists%", result, StringComparison.OrdinalIgnoreCase);
+    }
 }

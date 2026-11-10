@@ -53,6 +53,9 @@ public class PresetCatalogWriterTests
             Assert.True(File.Exists(path));
             var text = File.ReadAllText(path);
             Assert.EndsWith(Environment.NewLine, text);
+            // Атомарная запись не оставляет временных файлов (в т.ч. при повторном сохранении).
+            PresetCatalogWriter.Save(catalog, path);
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
         }
         finally
         {

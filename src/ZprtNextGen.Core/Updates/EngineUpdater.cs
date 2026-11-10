@@ -34,10 +34,17 @@ public sealed class EngineUpdater : IEngineUpdater
         ArgumentException.ThrowIfNullOrWhiteSpace(presetsPath);
         ArgumentNullException.ThrowIfNull(stopEngine);
 
+        // GetFullPath сохраняет завершающий разделитель; без нормализации бэкап создался бы внутри папки.
+        var normalizedEngineRoot = engineRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        EnsureNotApplicationDirectory(normalizedEngineRoot);
+
         var zipAsset = release.FindZip()
             ?? throw new InvalidDataException("В релизе движка не найден .zip-ассет для скачивания.");
 
-        var engineRootExisted = Directory.Exists(engineRoot);
+        // Если прошлое обновление оборвалось после переноса движка в бэкап — возвращаем его.
+        TryRestoreOrphanedBackup(normalizedEngineRoot);
+
+        var engineRootExisted = Directory.Exists(normalizedEngineRoot);
         var tempZip = Path.GetTempFileName();
         string? backupRoot = null;
 
@@ -73,18 +80,18 @@ public sealed class EngineUpdater : IEngineUpdater
 
                 if (engineRootExisted)
                 {
-                    backupRoot = engineRoot + ".backup." + DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss");
-                    PrepareDirectoryForMove(engineRoot);
-                    MoveDirectoryWithRetry(engineRoot, backupRoot);
+                    backupRoot = normalizedEngineRoot + ".backup." + DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss");
+                    PrepareDirectoryForMove(normalizedEngineRoot);
+                    MoveDirectoryWithRetry(normalizedEngineRoot, backupRoot);
                 }
 
                 try
                 {
-                    Directory.CreateDirectory(engineRoot);
-                    CopyDirectory(newEngineRoot, engineRoot);
+                    Directory.CreateDirectory(normalizedEngineRoot);
+                    CopyDirectory(newEngineRoot, normalizedEngineRoot);
 
                     progress?.Report("Импорт пресетов...");
-                    var catalog = PresetImporter.Import(engineRoot, release.Tag);
+                    var catalog = PresetImporter.Import(normalizedEngineRoot, release.Tag);
                     PresetCatalogWriter.Save(catalog, presetsPath);
 
                     if (backupRoot is not null)
@@ -93,31 +100,80 @@ public sealed class EngineUpdater : IEngineUpdater
                     progress?.Report("Готово.");
                     return new EngineUpdateResult(true, oldVersion, release.Tag, catalog.Presets.Count, null);
                 }
-                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                catch (Exception ex)
                 {
-                    // Откат: вернуть старый движок на место.
-                    RestoreBackup(engineRoot, ref backupRoot);
+                    // Откат: вернуть старый движок на место. Не копируем бэкап поверх частичного,
+                    // чтобы не получить гибрид из старых и новых файлов.
+                    var restored = RestoreBackup(normalizedEngineRoot, ref backupRoot);
+                    if (!restored && !engineRootExisted)
+                    {
+                        // Движка не было — убираем частичную папку, чтобы не оставлять битый движок.
+                        TryDeleteDirectory(normalizedEngineRoot);
+                    }
+
                     throw new IOException(
-                        "Не удалось обновить файлы движка (возможно, WinDivert/драйвер ещё используется). " +
-                        "Закройте другие экземпляры запрета/winws и попробуйте снова. " + ex.Message, ex);
-                }
-                catch
-                {
-                    // Откат: вернуть старый движок на место.
-                    RestoreBackup(engineRoot, ref backupRoot);
-                    throw;
+                        $"Не удалось обновить движок: {ex.Message}" +
+                        (restored ? "" : $". Бэкап сохранён: {backupRoot ?? "нет"}"), ex);
                 }
             }
             finally
             {
                 if (Directory.Exists(tempExtract))
-                    Directory.Delete(tempExtract, recursive: true);
+                    TryDeleteDirectory(tempExtract);
             }
         }
         finally
         {
             if (File.Exists(tempZip))
                 File.Delete(tempZip);
+        }
+    }
+
+    private static void EnsureNotApplicationDirectory(string engineRoot)
+    {
+        var normalizedBase = Path.GetFullPath(AppContext.BaseDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (string.Equals(engineRoot, normalizedBase, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Нельзя обновлять движок в папке приложения: это приведёт к перемещению/удалению самой программы.");
+        }
+
+        var processPath = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(processPath))
+        {
+            var processDir = Path.GetFullPath(Path.GetDirectoryName(processPath) ?? string.Empty);
+            if (string.Equals(engineRoot, processDir, StringComparison.OrdinalIgnoreCase) ||
+                processDir.StartsWith(engineRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Нельзя обновлять движок в папке, где находится запущенное приложение.");
+            }
+        }
+    }
+
+    private static void TryRestoreOrphanedBackup(string engineRoot)
+    {
+        if (Directory.Exists(engineRoot))
+            return;
+
+        try
+        {
+            var parent = Path.GetDirectoryName(engineRoot);
+            if (string.IsNullOrEmpty(parent) || !Directory.Exists(parent))
+                return;
+
+            var prefix = Path.GetFileName(engineRoot) + ".backup.";
+            var latest = Directory.GetDirectories(parent, prefix + "*")
+                .OrderByDescending(p => p, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (latest is not null)
+                Directory.Move(latest, engineRoot);
+        }
+        catch
+        {
+            // Лучшая попытка: не мешаем обновлению из-за старого бэкапа.
         }
     }
 
@@ -182,10 +238,10 @@ public sealed class EngineUpdater : IEngineUpdater
         catch { /* лучшая попытка */ }
     }
 
-    private static void RestoreBackup(string engineRoot, ref string? backupRoot)
+    private static bool RestoreBackup(string engineRoot, ref string? backupRoot)
     {
         if (string.IsNullOrEmpty(backupRoot) || !Directory.Exists(backupRoot))
-            return;
+            return false;
 
         try
         {
@@ -205,20 +261,15 @@ public sealed class EngineUpdater : IEngineUpdater
             }
 
             if (Directory.Exists(engineRoot))
-            {
-                // Не удалось освободить путь — копируем содержимое бэкапа поверх.
-                CopyDirectory(backupRoot, engineRoot);
-                TryDeleteDirectory(backupRoot);
-                backupRoot = null;
-                return;
-            }
+                return false; // путь занят — не копируем поверх, оставляем бэкап для ручного восстановления
 
             Directory.Move(backupRoot, engineRoot);
             backupRoot = null;
+            return true;
         }
         catch
         {
-            // Лучшая попытка: бэкап оставляем на диске (backupRoot не обнуляем здесь намеренно? нет — оставим для диагностики).
+            return false;
         }
     }
 

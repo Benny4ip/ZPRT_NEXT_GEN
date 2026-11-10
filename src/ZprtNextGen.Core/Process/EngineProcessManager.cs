@@ -1,5 +1,6 @@
 namespace ZprtNextGen.Core.Process;
 
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 
@@ -104,8 +105,15 @@ public class EngineProcessManager : IEngineProcessManager
 
         lock (_sync)
         {
-            if (_process is not null && !_process.HasExited)
-                throw new InvalidOperationException("Engine process is already running.");
+            if (_process is not null)
+            {
+                if (!_process.HasExited)
+                    throw new InvalidOperationException("Engine process is already running.");
+                // Старый процесс уже завершился — освобождаем объект перед заменой.
+                try { _process.Dispose(); }
+                catch { /* лучшая попытка */ }
+                _process = null;
+            }
         }
 
         RaiseStatusChanged(EngineStatus.Starting, "starting");
@@ -149,6 +157,7 @@ public class EngineProcessManager : IEngineProcessManager
             process.OutputDataReceived -= OnOutputDataReceived;
             process.ErrorDataReceived -= OnErrorDataReceived;
             process.Exited -= OnExited;
+            try { process.Dispose(); } catch { /* лучшая попытка */ }
             throw;
         }
 
@@ -159,28 +168,47 @@ public class EngineProcessManager : IEngineProcessManager
             _status = EngineStatus.Running;
         }
 
-        RaiseStatusChanged(EngineStatus.Running, null);
-
+        // Начинаем чтение вывода до события Running, чтобы подписчики не потеряли строки.
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
+
+        RaiseStatusChanged(EngineStatus.Running, null);
 
         return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken ct)
     {
-        Process? process;
+        Process? process = null;
+        Process? stale = null;
         lock (_sync)
         {
             if (_process is null || !_ownedProcessId.HasValue)
             {
                 // Нечего останавливать — идемпотентно (важно для обновления, когда движок уже остановлен).
+                // Если процесс уже завершился сам, освобождаем его handle, иначе он утечёт до выхода.
+                stale = _process;
                 _status = EngineStatus.Stopped;
                 _ownedProcessId = null;
                 _process = null;
-                return;
             }
-            process = _process;
+            else
+            {
+                process = _process;
+            }
+        }
+
+        if (process is null)
+        {
+            if (stale is not null)
+            {
+                stale.OutputDataReceived -= OnOutputDataReceived;
+                stale.ErrorDataReceived -= OnErrorDataReceived;
+                stale.Exited -= OnExited;
+                try { stale.Dispose(); } catch { /* лучшая попытка */ }
+            }
+
+            return;
         }
 
         if (!process.HasExited)
@@ -195,6 +223,10 @@ public class EngineProcessManager : IEngineProcessManager
             {
                 // Уже завершился между проверкой HasExited и Kill.
             }
+            catch (Win32Exception)
+            {
+                // Нет прав на завершение — всё равно пробуем дождаться выхода.
+            }
 
             try
             {
@@ -207,8 +239,27 @@ public class EngineProcessManager : IEngineProcessManager
                     _status = EngineStatus.Error;
                 }
 
-                RaiseStatusChanged(EngineStatus.Error, "stop timeout");
+                RaiseStatusChanged(EngineStatus.Error, "stop cancelled");
                 throw;
+            }
+            catch (TimeoutException)
+            {
+                // Не удалось остановить за отведённое время — сбрасываем состояние,
+                // чтобы менеджер не застрял в Stopping и не блокировал перезапуск.
+                lock (_sync)
+                {
+                    _status = EngineStatus.Error;
+                    _ownedProcessId = null;
+                    if (ReferenceEquals(_process, process))
+                        _process = null;
+                }
+
+                RaiseStatusChanged(EngineStatus.Error, "stop timeout");
+                throw new TimeoutException("Не удалось остановить движок за 5 секунд.");
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ObjectDisposedException)
+            {
+                // Процесс завершился между проверкой и ожиданием.
             }
         }
 
@@ -216,12 +267,13 @@ public class EngineProcessManager : IEngineProcessManager
         {
             _status = EngineStatus.Stopped;
             _ownedProcessId = null;
-            _process = null;
+            if (ReferenceEquals(_process, process))
+                _process = null;
         }
 
         RaiseStatusChanged(EngineStatus.Stopped, null);
 
-        process.Dispose();
+        try { process.Dispose(); } catch { /* лучшая попытка */ }
     }
 
     public bool IsForeignInstanceRunning()
@@ -316,36 +368,38 @@ public class EngineProcessManager : IEngineProcessManager
 
     private void OnOutputDataReceived(object? sender, DataReceivedEventArgs e)
     {
-        if (e.Data is not null)
-            OutputReceived.Invoke(this, e.Data);
+        if (e.Data is null)
+            return;
+
+        try { OutputReceived.Invoke(this, e.Data); }
+        catch { /* исключение в подписке не должно ронять поток вывода процесса */ }
     }
 
     private void OnErrorDataReceived(object? sender, DataReceivedEventArgs e)
     {
-        if (e.Data is not null)
-            OutputReceived.Invoke(this, e.Data);
+        if (e.Data is null)
+            return;
+
+        try { OutputReceived.Invoke(this, e.Data); }
+        catch { /* исключение в подписке не должно ронять поток вывода процесса */ }
     }
 
     private void OnExited(object? sender, EventArgs e)
     {
-        bool isOurs;
-        int pid;
+        // Событие может прийти от старого процесса, уже заменённого новым.
+        // Поэтому проверяем именно sender, а не текущее поле _process.
+        bool isOurs = false;
         lock (_sync)
         {
-            if (_process is null || !_ownedProcessId.HasValue || _status == EngineStatus.Stopped)
+            if (!ReferenceEquals(sender, _process) || !_ownedProcessId.HasValue || _status == EngineStatus.Stopped)
             {
                 isOurs = false;
-                pid = 0;
             }
             else
             {
-                pid = _process.Id;
-                isOurs = pid == _ownedProcessId.Value;
-                if (isOurs)
-                {
-                    _status = EngineStatus.Stopped;
-                    _ownedProcessId = null;
-                }
+                isOurs = true;
+                _status = EngineStatus.Stopped;
+                _ownedProcessId = null;
             }
         }
 
@@ -355,6 +409,7 @@ public class EngineProcessManager : IEngineProcessManager
 
     private void RaiseStatusChanged(EngineStatus status, string? detail)
     {
-        StatusChanged.Invoke(this, new EngineStatusChangedEventArgs(status, detail));
+        try { StatusChanged.Invoke(this, new EngineStatusChangedEventArgs(status, detail)); }
+        catch { /* исключение в подписке не должно ронять менеджер процесса */ }
     }
 }

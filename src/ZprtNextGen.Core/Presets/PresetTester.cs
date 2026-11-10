@@ -54,6 +54,16 @@ public sealed class PresetTester : IPresetTester
 
             try
             {
+                if (_engine.IsForeignInstanceRunning())
+                {
+                    result = new PresetTestResult(
+                        preset.Id, preset.Name, false, 0,
+                        "Обход уже запущен извне. Остановите его перед тестированием пресетов.");
+                    results.Add(result);
+                    progress?.Report(new PresetTestProgress(i + 1, presets.Count, preset, result));
+                    continue;
+                }
+
                 var arguments = PresetArgumentBuilder.Build(preset, engineRoot, filter);
                 await _engine.StartAsync(Path.Combine(bin, "winws.exe"), arguments, bin, ct);
 
@@ -85,7 +95,9 @@ public sealed class PresetTester : IPresetTester
             {
                 try
                 {
-                    if (_engine.Status == EngineStatus.Running)
+                    // Останавливаем при любом незавершённом состоянии (Running/Starting/Stopping/Error),
+                    // иначе процесс winws может остаться висеть после теста.
+                    if (_engine.Status != EngineStatus.Stopped)
                         await _engine.StopAsync(CancellationToken.None);
                 }
                 catch

@@ -42,12 +42,24 @@ public static class EngineLocator
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var candidate in candidates)
         {
-            var fullPath = Path.GetFullPath(candidate);
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(candidate);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                // Невалидный путь в настройках — пропускаем, не роняя поиск движка.
+                continue;
+            }
+
             if (seen.Add(fullPath))
                 unique.Add(fullPath);
         }
 
-        var firstCandidate = unique.Count > 0 ? unique[0] : Path.GetFullPath(baseDirectory);
+        var firstCandidate = unique.Count > 0
+            ? unique[0]
+            : Path.GetFullPath(baseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
 
         foreach (var candidate in unique)
         {

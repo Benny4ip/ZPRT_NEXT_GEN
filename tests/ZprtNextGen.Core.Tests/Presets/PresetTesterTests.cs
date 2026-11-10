@@ -80,6 +80,25 @@ public class PresetTesterTests
     }
 
     [Fact]
+    public async Task TestAllAsync_ForeignInstanceRunning_FailsWithoutStartingEngine()
+    {
+        var engine = new FakeEngineProcess { ForeignRunning = true };
+        var connectivity = new FakeConnectivity();
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+
+        var results = await sut.TestAllAsync(Presets, @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r =>
+        {
+            Assert.False(r.Success);
+            Assert.Contains("извне", r.Detail);
+        });
+        Assert.Empty(engine.Starts);
+        Assert.Equal(0, engine.StopCalls);
+    }
+
+    [Fact]
     public void StatusText_SuccessAndFailure()
     {
         var ok = new PresetTestResult("p1", "Пресет 1", true, 120, null);

@@ -47,9 +47,14 @@ public sealed class AppUpdater : IAppUpdater
             $"tasklist /FI \"PID eq {pid}\" | findstr \"{pid}\" >nul",
             $"if not errorlevel 1 goto wait",
             $"move /Y \"{newExe}\" \"{targetExe}\"",
+            "if errorlevel 1 goto :error",
             $"start \"\" \"{targetExe}\"",
             $"rd /s /q \"{tempDirectory}\"",
             "del %0",
+            "exit /b 0",
+            ":error",
+            $"echo Не удалось заменить {targetExe}. Обновление не применено, временные файлы сохранены.",
+            "exit /b 1",
         };
         File.WriteAllText(script, string.Join(Environment.NewLine, lines) + Environment.NewLine);
         return script;
@@ -58,7 +63,19 @@ public sealed class AppUpdater : IAppUpdater
     public void Launch(AppUpdatePlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
-        System.Diagnostics.Process.Start(new ProcessStartInfo(plan.ScriptPath) { UseShellExecute = true });
+
+        if (!File.Exists(plan.ScriptPath))
+            throw new FileNotFoundException("Скрипт обновления не найден.", plan.ScriptPath);
+
+        try
+        {
+            System.Diagnostics.Process.Start(new ProcessStartInfo(plan.ScriptPath) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Не удалось запустить обновление программы: {ex.Message}", ex);
+        }
     }
 
     public async Task<AppUpdatePlan> PrepareAsync(ReleaseInfo release, string appDirectory,
@@ -78,17 +95,26 @@ public sealed class AppUpdater : IAppUpdater
 
             // Распакованные файлы хранятся до выполнения скрипта обновления (скрипт их удалит).
             var tempExtract = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-            ZipFile.ExtractToDirectory(tempZip, tempExtract);
+            try
+            {
+                ZipFile.ExtractToDirectory(tempZip, tempExtract);
 
-            var newExe = Directory.GetFiles(tempExtract, "ZprtNextGen.exe", SearchOption.AllDirectories)
-                .FirstOrDefault()
-                ?? throw new InvalidDataException("В архиве программы не найден ZprtNextGen.exe.");
+                var newExe = Directory.GetFiles(tempExtract, "ZprtNextGen.exe", SearchOption.AllDirectories)
+                    .FirstOrDefault()
+                    ?? throw new InvalidDataException("В архиве программы не найден ZprtNextGen.exe.");
 
-            var targetExe = Path.Combine(appDirectory, "ZprtNextGen.exe");
-            var script = CreateScript(Environment.ProcessId, newExe, targetExe, tempExtract);
+                var targetExe = Path.Combine(appDirectory, "ZprtNextGen.exe");
+                var script = CreateScript(Environment.ProcessId, newExe, targetExe, tempExtract);
 
-            progress?.Report("Готово к перезапуску.");
-            return new AppUpdatePlan(script, newExe, targetExe);
+                progress?.Report("Готово к перезапуску.");
+                return new AppUpdatePlan(script, newExe, targetExe);
+            }
+            catch
+            {
+                // Не оставляем временную папку при неудачной подготовке.
+                try { if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, recursive: true); } catch { }
+                throw;
+            }
         }
         finally
         {

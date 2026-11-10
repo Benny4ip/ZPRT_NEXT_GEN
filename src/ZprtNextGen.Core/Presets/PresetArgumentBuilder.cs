@@ -75,14 +75,11 @@ public static class PresetArgumentBuilder
             return;
 
         var listsDir = listsDirWithSeparator.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        try
-        {
-            Directory.CreateDirectory(listsDir);
-        }
-        catch
-        {
+
+        // Не создаём каталоги/файлы для несуществующего движка (например, в тестах или при битом пути):
+        // иначе Build имеет побочный эффект и заменяет реальную ошибку «движок не найден».
+        if (!Directory.Exists(listsDir))
             return;
-        }
 
         // Ищем {{LISTS}}имяфайла (до пробела/кавычки/конца) в исходных аргументах.
         var idx = 0;

@@ -95,6 +95,46 @@ public class PresetImporterTests
         }
     }
 
+    [Fact]
+    public void Import_SkipsBrokenBat_AndImportsValidOnes()
+    {
+        var engineRoot = CreateTempEngineWith(Path.Combine(AppContext.BaseDirectory, "Fixtures", "bats"));
+        try
+        {
+            // Битый .bat без строки запуска не должен ронять импорт целиком.
+            File.WriteAllText(Path.Combine(engineRoot, "general (BROKEN).bat"), "@echo off\necho nothing here");
+
+            var catalog = PresetImporter.Import(engineRoot);
+
+            Assert.Contains(catalog.Presets, p => p.Id == "general");
+            Assert.DoesNotContain(catalog.Presets, p => p.Id.Contains("broken"));
+        }
+        finally
+        {
+            Directory.Delete(engineRoot, true);
+        }
+    }
+
+    [Fact]
+    public void Import_NoUsablePresets_ThrowsInvalidDataException()
+    {
+        var engineRoot = Path.Combine(Path.GetTempPath(), $"zprt-engine-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(engineRoot, "bin"));
+        Directory.CreateDirectory(Path.Combine(engineRoot, "lists"));
+        File.WriteAllText(Path.Combine(engineRoot, "bin", "winws.exe"), string.Empty);
+        File.WriteAllText(Path.Combine(engineRoot, "lists", "list-general.txt"), string.Empty);
+        File.WriteAllText(Path.Combine(engineRoot, "service.bat"), "@echo off");
+        try
+        {
+            var ex = Assert.Throws<InvalidDataException>(() => PresetImporter.Import(engineRoot));
+            Assert.Contains("пресеты", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(engineRoot, true);
+        }
+    }
+
     private static string CreateTempEngineWith(string batsDir)
     {
         var engineRoot = Path.Combine(Path.GetTempPath(), $"zprt-engine-{Guid.NewGuid():N}");

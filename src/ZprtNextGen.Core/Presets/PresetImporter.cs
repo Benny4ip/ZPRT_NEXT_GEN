@@ -43,17 +43,39 @@ public static class PresetImporter
             .ToList();
 
         var presets = new List<Preset>(bats.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var bat in bats)
         {
             var fileName = Path.GetFileName(bat);
-            var id = PresetNaming.ToId(fileName);
-            var batText = File.ReadAllText(bat);
-            var arguments = BatPresetParser.ParseArguments(batText, id);
-            var (name, description) = PresetNaming.Describe(id);
-            var groupId = PresetNaming.TryParseGroupId(id, out var group)
-                ? group
-                : "general";
-            presets.Add(new Preset(id, groupId, name, description, arguments));
+            try
+            {
+                var id = PresetNaming.ToId(fileName);
+                if (!seenIds.Add(id))
+                {
+                    // Дубликат id (например, разные варианты скобок/регистра) — пропускаем.
+                    continue;
+                }
+
+                var batText = File.ReadAllText(bat);
+                var arguments = BatPresetParser.ParseArguments(batText, id);
+                var (name, description) = PresetNaming.Describe(id);
+                var groupId = PresetNaming.TryParseGroupId(id, out var group)
+                    ? group
+                    : "general";
+                presets.Add(new Preset(id, groupId, name, description, arguments));
+            }
+            catch (Exception ex) when (ex is InvalidDataException or ArgumentException or IOException)
+            {
+                // Битый/нечитаемый .bat не должен ронять весь импорт — пропускаем файл.
+                continue;
+            }
+        }
+
+        if (presets.Count == 0)
+        {
+            throw new InvalidDataException(
+                $"В папке движка '{root}' не найдены пригодные пресеты (general*.bat).");
         }
 
         var groups = PresetNaming.GroupsOrdered

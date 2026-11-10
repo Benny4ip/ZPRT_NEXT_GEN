@@ -34,7 +34,10 @@ public static class PresetCatalogWriter
         return JsonSerializer.Serialize(dto, Options);
     }
 
-    /// <summary>Сохранить каталог в файл (UTF-8 без BOM, с переводом строки в конце).</summary>
+    /// <summary>
+    /// Сохранить каталог в файл атомарно (UTF-8 без BOM, с переводом строки в конце):
+    /// запись во временный файл и замена целевого, чтобы не оставить повреждённый каталог при сбое.
+    /// </summary>
     public static void Save(PresetCatalog catalog, string path)
     {
         ArgumentNullException.ThrowIfNull(catalog);
@@ -44,9 +47,19 @@ public static class PresetCatalogWriter
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
 
-        var json = Serialize(catalog);
-        File.WriteAllText(path, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        File.AppendAllText(path, Environment.NewLine);
+        var json = Serialize(catalog) + Environment.NewLine;
+        var tempPath = path + ".tmp";
+
+        try
+        {
+            File.WriteAllText(tempPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* лучшая попытка */ }
+            throw;
+        }
     }
 
     private sealed class CatalogDto
