@@ -153,7 +153,14 @@
     <Grid>
         <ToggleButton x:Name="FieldToggle"
                       Style="{StaticResource PresetFieldToggle}"
-                      IsChecked="{Binding IsOpen, Mode=OneWay, ElementName=PresetsPopup}"
+                      Checked="OnFieldToggleChecked"
+                      Unchecked="OnFieldToggleUnchecked"
+                      PreviewMouseLeftButtonDown="OnFieldTogglePreviewMouseLeftButtonDown"
+                      AutomationProperties.Name="{Binding SelectedPreset.Name, ElementName=Root,
+                                                          StringFormat='Выбор пресета: {0}',
+                                                          TargetNullValue='Выбор пресета',
+                                                          FallbackValue='Выбор пресета'}"
+                      AutomationProperties.HelpText="Открыть список пресетов"
                       Content="{Binding SelectedPreset.Name, Mode=OneWay, ElementName=Root,
                                           TargetNullValue='Пресет не выбран', FallbackValue='Пресет не выбран'}"
                       MinWidth="260" Height="40" HorizontalAlignment="Left" />
@@ -163,9 +170,9 @@
                PlacementTarget="{Binding ElementName=FieldToggle}"
                StaysOpen="False"
                AllowsTransparency="True"
-               IsOpen="{Binding IsChecked, Mode=OneWay, ElementName=FieldToggle}"
                PopupAnimation="Fade"
-               Opened="OnPopupOpened">
+               Opened="OnPopupOpened"
+               Closed="OnPopupClosed">
             <Border x:Name="PopupBorder"
                     Background="{StaticResource Brush.Surface}"
                     BorderBrush="{StaticResource Brush.Border}"
@@ -187,6 +194,7 @@
                                     <Button x:Name="HeaderButton"
                                             Style="{StaticResource GroupHeaderButton}"
                                             Content="{Binding Name}"
+                                            AutomationProperties.Name="{Binding Name, StringFormat='Группа пресетов: {0}'}"
                                             Click="OnGroupHeaderClick" />
                                     <ItemsControl ItemsSource="{Binding Presets}"
                                                   Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -196,6 +204,8 @@
                                                         ContentTemplate="{StaticResource PresetItemTemplate}"
                                                         Command="{Binding SelectCommand, ElementName=Root}"
                                                         CommandParameter="{Binding}"
+                                                        AutomationProperties.Name="{Binding Name}"
+                                                        AutomationProperties.HelpText="{Binding Description}"
                                                         Content="{Binding}"
                                                         Click="OnPresetItemClick">
                                                     <Button.Background>

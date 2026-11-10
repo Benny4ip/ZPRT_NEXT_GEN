@@ -4,7 +4,10 @@ namespace ZprtNextGen.Core.Diagnostics;
 public record ConnectivityTarget(string Id, string DisplayName, string Url, bool IsPrimary);
 
 /// <summary>Результат проверки одной цели.</summary>
-public record ConnectivityResult(ConnectivityTarget Target, bool Success, long ElapsedMs, string? Error);
+/// <param name="TimedOut"><c>true</c>, если ответа не дождались (таймаут/отмена) и <paramref name="ElapsedMs"/>
+/// — это длительность ожидания, а не измеренная задержка.</param>
+public record ConnectivityResult(
+    ConnectivityTarget Target, bool Success, long ElapsedMs, string? Error, bool TimedOut = false);
 
 /// <summary>Отчёт проверки доступности.</summary>
 public record ConnectivityReport(IReadOnlyList<ConnectivityResult> Results)

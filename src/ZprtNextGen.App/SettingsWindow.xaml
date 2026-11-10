@@ -153,7 +153,7 @@
                 <StackPanel Margin="16">
                     <TextBlock Text="Проверка пресетов" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"
                                Margin="0,0,0,12" />
-                    <TextBlock Text="Последовательно запускает каждый альтернативный пресет, проверяет Discord/YouTube и останавливает движок."
+                    <TextBlock Text="Последовательно запускает каждый пресет (включая основной, EXP, FAKE TLS и SIMPLE FAKE), проверяет Discord/YouTube и останавливает движок."
                                Foreground="{StaticResource Brush.TextMuted}" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Content="Тестировать все обходы" Command="{Binding TestAllPresetsCommand}"
@@ -179,11 +179,13 @@
                                         <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{StaticResource Brush.Text}" />
                                         <TextBlock Grid.Column="1" Text="{Binding StatusText}"
                                                    Foreground="{Binding Success, Converter={StaticResource BoolToBrushConverter}}" />
-                                        <TextBlock Grid.Column="2" Text="{Binding ElapsedMs, StringFormat='{}{0} мс'}"
+                                        <TextBlock Grid.Column="2" Text="{Binding LatencyText}"
+                                                   AutomationProperties.Name="{Binding LatencyText, StringFormat='Задержка: {0}'}"
                                                    Foreground="{StaticResource Brush.TextMuted}" FontSize="11" Margin="8,0,0,0" />
                                         <Button Grid.Column="3" Content="Применить"
                                                 Command="{Binding DataContext.ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding PresetId}"
+                                                AutomationProperties.Name="{Binding Name, StringFormat='Применить обход: {0}'}"
                                                 Style="{StaticResource SecondaryButton}" FontSize="10" Padding="6,2"
                                                 Margin="8,0,0,0" MinWidth="70"
                                                 Visibility="{Binding Success, Converter={StaticResource BoolToVisibilityConverter}}" />

@@ -97,7 +97,8 @@
                         <ItemsControl ItemsSource="{Binding ConnectivityRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Padding="8,7" CornerRadius="8" SnapsToDevicePixels="True">
+                                    <Border Padding="8,7" CornerRadius="8" SnapsToDevicePixels="True"
+                                            AutomationProperties.Name="{Binding Name}">
                                         <Grid Margin="0,4">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -110,12 +111,14 @@
                                                      Margin="0,0,10,0" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
                                                        Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding ElapsedMs, StringFormat='{}{0} мс'}"
+                                            <TextBlock Grid.Column="2" Text="{Binding LatencyText}"
                                                        Foreground="{StaticResource Brush.TextMuted}" FontSize="12"
                                                        Margin="8,0,0,0" VerticalAlignment="Center" />
                                             <Button Grid.Column="3" Content="Проверить связь"
                                                     Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding TargetId}"
+                                                    AutomationProperties.Name="{Binding Name, StringFormat='Проверить связь: {0}'}"
+                                                    AutomationProperties.HelpText="{Binding Error}"
                                                     Style="{StaticResource SecondaryButton}" FontSize="11" Padding="10,4"
                                                     Margin="12,0,0,0" MinWidth="110" VerticalAlignment="Center">
                                                 <Button.ToolTip>
@@ -136,10 +139,21 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Лог" FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Text}" Margin="0,0,0,8" />
-                    <Button DockPanel.Dock="Bottom" Content="Открыть папку логов"
-                            Command="{Binding OpenLogsCommand}" Style="{StaticResource SecondaryButton}"
-                            HorizontalAlignment="Right" MinWidth="110" Padding="10,4" Margin="0,12,0,0" />
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                                HorizontalAlignment="Right" Margin="0,12,0,0">
+                        <Button Content="Копировать лог" Click="OnCopyLog"
+                                AutomationProperties.Name="Копировать лог"
+                                ToolTip="Скопировать все строки лога в буфер обмена"
+                                Style="{StaticResource SecondaryButton}"
+                                MinWidth="110" Padding="10,4" Margin="0,0,8,0" />
+                        <Button Content="Открыть папку логов"
+                                Command="{Binding OpenLogsCommand}"
+                                AutomationProperties.Name="Открыть папку логов"
+                                Style="{StaticResource SecondaryButton}"
+                                MinWidth="110" Padding="10,4" />
+                    </StackPanel>
                     <ListBox x:Name="LogList" ItemsSource="{Binding LogLines}"
+                             AutomationProperties.Name="Лог"
                              FontFamily="Cascadia Mono, Consolas" FontSize="12"
                              Style="{StaticResource LogListBox}" />
                 </DockPanel>

@@ -67,7 +67,8 @@ public sealed class ConnectivityService(HttpClient client) : IConnectivityServic
             // Отмена пользователем или таймаут HttpClient — результат проверки, а не падение всего прогона.
             stopwatch.Stop();
             return new ConnectivityResult(
-                target, false, stopwatch.ElapsedMilliseconds, "Превышено время ожидания или проверка отменена.");
+                target, false, stopwatch.ElapsedMilliseconds,
+                "Превышено время ожидания или проверка отменена.", TimedOut: true);
         }
         catch (Exception ex)
         {

@@ -26,6 +26,18 @@ public class PresetImporterTests
     }
 
     [Fact]
+    public void IdComparer_OrdersNumbersNaturally()
+    {
+        var ids = new[] { "general-alt10", "general-alt2", "general", "general-alt13", "general-alt" };
+
+        var sorted = ids.OrderBy(id => id, PresetNaming.IdComparer).ToArray();
+
+        Assert.Equal(
+            new[] { "general", "general-alt", "general-alt2", "general-alt10", "general-alt13" },
+            sorted);
+    }
+
+    [Fact]
     public void Describe_AltWithoutNumber_IsFirst()
     {
         var (name, desc) = PresetNaming.Describe("general-alt");

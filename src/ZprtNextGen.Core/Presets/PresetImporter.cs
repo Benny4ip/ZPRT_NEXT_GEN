@@ -39,7 +39,7 @@ public static class PresetImporter
 
         var bats = Directory.GetFiles(root, "general*.bat")
             .Where(p => !Path.GetFileName(p).Equals("service.bat", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(p => PresetNaming.ToId(Path.GetFileName(p)))
+            .OrderBy(p => PresetNaming.ToId(Path.GetFileName(p)), PresetNaming.IdComparer)
             .ToList();
 
         var presets = new List<Preset>(bats.Count);

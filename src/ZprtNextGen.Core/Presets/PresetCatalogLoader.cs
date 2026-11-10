@@ -95,6 +95,9 @@ public static class PresetCatalogLoader
             presets.Add(preset);
         }
 
+        // Порядок в файле может быть лексикографическим («1, 10, 11, 2…»):
+        // для UI и тестирования приводим пресеты к естественному порядку.
+        presets.Sort((a, b) => PresetNaming.CompareIds(a.Id, b.Id));
         return presets;
     }
 

@@ -11,6 +11,12 @@ public static class PresetNaming
     private static readonly Regex CollapseDashes = new("-{2,}", RegexOptions.Compiled);
 
     /// <summary>
+    /// Естественный порядок идентификаторов: числа сравниваются по значению,
+    /// поэтому «general-alt2» идёт раньше «general-alt10», а не наоборот.
+    /// </summary>
+    public static IComparer<string> IdComparer { get; } = new NaturalIdComparer();
+
+    /// <summary>
     /// Группы в фиксированном порядке: (id, отображаемое имя группы).
     /// </summary>
     internal static readonly (string Id, string Name)[] GroupsOrdered = new[]
@@ -140,5 +146,69 @@ public static class PresetNaming
     {
         var rest = id[prefix.Length..];
         return rest.Length == 0 ? 1 : (int.TryParse(rest, out var n) ? n : 1);
+    }
+
+    /// <summary>Сравнить идентификаторы естественным образом (числовые части — по значению).</summary>
+    public static int CompareIds(string? x, string? y)
+    {
+        if (ReferenceEquals(x, y))
+            return 0;
+        if (x is null)
+            return -1;
+        if (y is null)
+            return 1;
+
+        int i = 0, j = 0;
+        while (i < x.Length && j < y.Length)
+        {
+            if (char.IsDigit(x[i]) && char.IsDigit(y[j]))
+            {
+                var endX = i;
+                while (endX < x.Length && char.IsDigit(x[endX]))
+                    endX++;
+                var endY = j;
+                while (endY < y.Length && char.IsDigit(y[endY]))
+                    endY++;
+
+                // Сравниваем числовые части без переполнения: сначала по длине без ведущих нулей.
+                var startX = i;
+                while (startX < endX - 1 && x[startX] == '0')
+                    startX++;
+                var startY = j;
+                while (startY < endY - 1 && y[startY] == '0')
+                    startY++;
+
+                var lengthX = endX - startX;
+                var lengthY = endY - startY;
+                if (lengthX != lengthY)
+                    return lengthX.CompareTo(lengthY);
+
+                for (var k = 0; k < lengthX; k++)
+                {
+                    var digit = x[startX + k].CompareTo(y[startY + k]);
+                    if (digit != 0)
+                        return digit;
+                }
+
+                i = endX;
+                j = endY;
+                continue;
+            }
+
+            var cx = char.ToLowerInvariant(x[i]);
+            var cy = char.ToLowerInvariant(y[j]);
+            if (cx != cy)
+                return cx.CompareTo(cy);
+
+            i++;
+            j++;
+        }
+
+        return (x.Length - i).CompareTo(y.Length - j);
+    }
+
+    private sealed class NaturalIdComparer : IComparer<string>
+    {
+        public int Compare(string? x, string? y) => CompareIds(x, y);
     }
 }

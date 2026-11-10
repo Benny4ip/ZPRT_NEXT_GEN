@@ -3,8 +3,10 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using ZprtNextGen.App.Services;
 using ZprtNextGen.App.ViewModels;
 using ZprtNextGen.Core.Diagnostics;
@@ -24,11 +26,15 @@ namespace ZprtNextGen.App;
 /// </summary>
 public partial class App : Application
 {
+    private const string ShowSignalName = @"Local\ZPRT_NEXT_GEN_show";
+
     private SingleInstanceGuard? _guard;
     private TrayService? _tray;
     private MainViewModel? _vm;
     private MainWindow? _mainWindow;
     private EngineProcessManager? _engineProcess;
+    private EventWaitHandle? _showSignal;
+    private Thread? _showSignalThread;
     private bool _vmShutdown;
     private bool _isHandlingException;
 
@@ -46,15 +52,17 @@ public partial class App : Application
             return;
         }
 
-        // 2. Один экземпляр приложения.
+        // 2. Один экземпляр приложения. Повторный запуск не просто сообщает об этом,
+        //    а просит уже работающий экземпляр показать окно на переднем плане.
         _guard = new SingleInstanceGuard("main");
         if (!_guard.IsOwner)
         {
-            MessageBox.Show("ZPRT NEXT GEN уже запущен", "ZPRT NEXT GEN",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            SignalExistingInstance();
             Shutdown();
             return;
         }
+
+        StartShowSignalListener();
 
         // 3. Логгер (раньше, чтобы фиксировать ошибки старта и пересоздавать папку логов).
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -96,9 +104,16 @@ public partial class App : Application
 
         // 6. Движок.
         var engine = EngineLocator.Locate(settings.EnginePath, AppContext.BaseDirectory);
-        if (!engine.IsValid)
+        if (engine.IsValid)
         {
-            logger.Error($"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}. Искали от '{AppContext.BaseDirectory}'.");
+            // Явный fallback-лог: при EnginePath = null видно, какой движок выбран автоматически.
+            logger.Info(string.IsNullOrWhiteSpace(settings.EnginePath)
+                ? $"EnginePath не задан; движок найден автоматически: '{engine.EngineRoot}'."
+                : $"Движок: '{engine.EngineRoot}' (EnginePath из настроек: '{settings.EnginePath}').");
+        }
+        else
+        {
+            logger.Error($"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}. EnginePath: '{settings.EnginePath ?? "не задан"}'. Искали от '{AppContext.BaseDirectory}'.");
             MessageBox.Show(
                 $"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}",
                 "ZPRT NEXT GEN",
@@ -206,16 +221,91 @@ public partial class App : Application
                     logger.Error(ex.Message, ex);
                 }
             },
-            show: () =>
-            {
-                _mainWindow!.Show();
-                if (_mainWindow.WindowState == WindowState.Minimized)
-                    _mainWindow.WindowState = WindowState.Normal;
-                _mainWindow.Activate();
-            },
+            show: ShowMainWindow,
             exit: () => _mainWindow!.RequestExit());
 
-        _mainWindow.Show();
+        // Показываем окно сразу. Повторная проверка на ApplicationIdle страхует от случаев,
+        // когда окно создано, но осталось невидимым (первый запуск, UAC/активация).
+        ShowMainWindow();
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+        {
+            if (_mainWindow is { IsVisible: false })
+                ShowMainWindow();
+        }));
+    }
+
+    /// <summary>Показать главное окно на переднем плане (старт, трей, повторный запуск).</summary>
+    private void ShowMainWindow()
+    {
+        if (_mainWindow is null)
+            return;
+
+        if (_mainWindow.WindowState == WindowState.Minimized)
+            _mainWindow.WindowState = WindowState.Normal;
+
+        if (!_mainWindow.IsVisible)
+            _mainWindow.Show();
+
+        _mainWindow.Activate();
+
+        // Кратковременный Topmost возвращает окно на передний план,
+        // даже если фокус удерживает другой процесс.
+        var topmost = _mainWindow.Topmost;
+        _mainWindow.Topmost = true;
+        _mainWindow.Topmost = topmost;
+        _mainWindow.Focus();
+    }
+
+    /// <summary>Слушать запросы второго экземпляра «показать окно».</summary>
+    private void StartShowSignalListener()
+    {
+        try
+        {
+            _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSignalName);
+        }
+        catch (Exception)
+        {
+            // Сигнал — вспомогательный механизм; без него приложение работает как раньше.
+            return;
+        }
+
+        _showSignalThread = new Thread(() =>
+        {
+            while (true)
+            {
+                try
+                {
+                    _showSignal.WaitOne();
+                }
+                catch
+                {
+                    return;
+                }
+
+                Dispatcher.BeginInvoke(new Action(ShowMainWindow), DispatcherPriority.Normal);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "ZPRT_NEXT_GEN: показать окно"
+        };
+        _showSignalThread.Start();
+    }
+
+    /// <summary>Второй экземпляр: попросить работающее приложение показать окно.</summary>
+    private static void SignalExistingInstance()
+    {
+        try
+        {
+            using var signal = EventWaitHandle.OpenExisting(ShowSignalName);
+            signal.Set();
+        }
+        catch (Exception ex) when (ex is WaitHandleCannotBeOpenedException or UnauthorizedAccessException or IOException)
+        {
+            // Первый экземпляр ещё не успел создать сигнал — сообщаем обычным способом.
+            MessageBox.Show("ZPRT NEXT GEN уже запущен", "ZPRT NEXT GEN",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
     }
 
     private static bool ConfirmEngineAction(string message)
@@ -244,6 +334,7 @@ public partial class App : Application
 
         _engineProcess?.Dispose();
         _tray?.Dispose();
+        _showSignal?.Dispose();
         _guard?.Dispose();
 
         base.OnExit(e);

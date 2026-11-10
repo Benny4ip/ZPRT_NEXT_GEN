@@ -427,7 +427,7 @@ public class MainViewModelTests
             Results =
             {
                 new PresetTestResult("general-alt5", "Альтернатива 5", true, 120, null),
-                new PresetTestResult("general-alt6", "Альтернатива 6", false, 50, "таймаут"),
+                new PresetTestResult("general-alt6", "Альтернатива 6", false, null, "Связь не подтверждена", TimedOut: true),
             }
         };
         var catalog = new PresetCatalog(
@@ -446,18 +446,56 @@ public class MainViewModelTests
         await vm.TestAllPresetsAsync();
 
         Assert.Equal(2, vm.PresetTestResults.Count);
-        // После сортировки по пингу — первым самый быстрый (50 мс — Альтернатива 6)
-        Assert.Equal("Альтернатива 6", vm.PresetTestResults[0].Name);
-        Assert.False(vm.PresetTestResults[0].Success);
-        Assert.Equal(50, vm.PresetTestResults[0].ElapsedMs);
-        Assert.Equal("Альтернатива 5", vm.PresetTestResults[1].Name);
-        Assert.True(vm.PresetTestResults[1].Success);
-        Assert.Equal(120, vm.PresetTestResults[1].ElapsedMs);
-        Assert.Equal(2, tester.LastPresets!.Count);
-        Assert.All(tester.LastPresets, p => Assert.True(p.Id.StartsWith("general-alt")));
+        // Успешные — первыми по возрастанию реального пинга, неуспешные (без пинга) — в конце.
+        Assert.Equal("Альтернатива 5", vm.PresetTestResults[0].Name);
+        Assert.True(vm.PresetTestResults[0].Success);
+        Assert.Equal(120, vm.PresetTestResults[0].ElapsedMs);
+        Assert.Equal("Альтернатива 6", vm.PresetTestResults[1].Name);
+        Assert.False(vm.PresetTestResults[1].Success);
+        Assert.Equal("таймаут", vm.PresetTestResults[1].LatencyText);
+        Assert.Equal(new[] { "general-alt5", "general-alt6" }, tester.LastPresets!.Select(p => p.Id));
         Assert.Equal(@"C:\E", tester.LastEngineRoot);
         Assert.False(vm.IsTestingPresets);
         Assert.Equal("Проверено 2, успешно 1.", vm.PresetTestStatus);
+    }
+
+    [Fact]
+    public async Task TestAllPresetsAsync_TestsAllPresetsNotOnlyAlternatives()
+    {
+        var tester = new FakePresetTester
+        {
+            Results =
+            {
+                new PresetTestResult("general", "Основной", true, 30, null),
+                new PresetTestResult("general-alt5", "Альтернатива 5", true, 40, null),
+                new PresetTestResult("general-exp", "Экспериментальный", false, null, "Связь не подтверждена", true),
+                new PresetTestResult("general-fake-tls-auto", "Fake TLS (авто)", true, 50, null),
+            }
+        };
+        var catalog = new PresetCatalog(
+            1, "winws", "1.0",
+            new[] { new PresetGroup("general", "Обычные") },
+            new[]
+            {
+                new Preset("general-fake-tls-auto", "general", "Fake TLS (авто)", "Описание", "--wf-tcp=443"),
+                new Preset("general-exp", "general", "Экспериментальный", "Описание", "--wf-tcp=443"),
+                new Preset("general-alt5", "general", "Альтернатива 5", "Описание", "--wf-tcp=443"),
+                new Preset("general", "general", "Основной", "Описание", "--wf-tcp=443"),
+            });
+        var deps = BuildDependencies(catalog: catalog);
+        var (vm, _, _, _, _, _) = CreateVm(deps, new MaintenanceDependencies(
+            new FakeGitHubReleaseClient(), new FakeEngineUpdater(), new FakeAppUpdater(), tester, "0.1.0", @"C:\P\presets.json"));
+        vm.InitializeAsync().GetAwaiter().GetResult();
+
+        await vm.TestAllPresetsAsync();
+
+        Assert.Equal(
+            new[] { "general", "general-alt5", "general-exp", "general-fake-tls-auto" },
+            tester.LastPresets!.Select(p => p.Id));
+        Assert.Equal(4, vm.PresetTestResults.Count);
+        Assert.Equal(3, vm.PresetTestResults.Count(r => r.Success));
+        Assert.Equal(1, vm.PresetTestResults.Count(r => r.TimedOut));
+        Assert.Equal("Проверено 4, успешно 3.", vm.PresetTestStatus);
     }
 
     [Fact]

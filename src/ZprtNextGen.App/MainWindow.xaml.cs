@@ -136,6 +136,26 @@ public partial class MainWindow : Window
             }));
     }
 
+    private void OnCopyLog(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var text = string.Join(Environment.NewLine, _viewModel.LogLines);
+            if (string.IsNullOrEmpty(text))
+            {
+                _viewModel.StatusText = "Лог пока пуст";
+                return;
+            }
+
+            Clipboard.SetText(text);
+            _viewModel.StatusText = "Лог скопирован в буфер обмена";
+        }
+        catch (Exception ex)
+        {
+            _viewModel.StatusText = "Не удалось скопировать лог: " + ex.Message;
+        }
+    }
+
     private void OnSettings(object sender, RoutedEventArgs e)
     {
         if (_settingsWindow is { IsLoaded: true })

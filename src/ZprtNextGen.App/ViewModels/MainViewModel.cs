@@ -357,6 +357,7 @@ public partial class MainViewModel : INotifyPropertyChanged
                 {
                     var groupPresets = _catalog.Presets
                         .Where(preset => preset.GroupId == group.Id)
+                        .OrderBy(preset => preset.Id, PresetNaming.IdComparer)
                         .ToList();
                     var groupVm = new PresetGroupViewModel(group.Id, group.Name, groupPresets, _collapsedGroups);
                     groupVm.PropertyChanged += OnGroupIsExpandedChanged;
@@ -368,7 +369,9 @@ public partial class MainViewModel : INotifyPropertyChanged
                 .FirstOrDefault(preset => preset.Id.Equals(_settings.PresetId, StringComparison.OrdinalIgnoreCase))
                 ?? _catalog.Presets.FirstOrDefault();
 
-            EnginePath = _settings.EnginePath ?? string.Empty;
+            // Если путь в настройках не задан, показываем найденный автоматически —
+            // так пользователь видит, какой движок реально используется (fallback).
+            EnginePath = _settings.EnginePath ?? _engine.EngineRoot ?? string.Empty;
             GameFilter = _settings.GameFilter;
             IsAutostartEnabled = await _autostart.IsEnabledAsync();
             MinimizeToTray = _settings.MinimizeToTray;
@@ -506,12 +509,13 @@ public partial class MainViewModel : INotifyPropertyChanged
                             existing.Success = result.Success;
                             existing.ElapsedMs = result.ElapsedMs;
                             existing.Error = result.Error;
+                            existing.TimedOut = result.TimedOut;
                         }
                         else
                         {
                             ConnectivityRows = ConnectivityRows.Append(new ConnectivityRowViewModel(
                                 result.Target.Id, result.Target.DisplayName, result.Success,
-                                result.ElapsedMs, result.Error)).ToList();
+                                result.ElapsedMs, result.Error, result.TimedOut)).ToList();
                         }
                     }
 
@@ -531,7 +535,8 @@ public partial class MainViewModel : INotifyPropertyChanged
                         Name = result.Target.DisplayName,
                         Success = result.Success,
                         ElapsedMs = result.ElapsedMs,
-                        Error = result.Error
+                        Error = result.Error,
+                        TimedOut = result.TimedOut
                     })
                     .ToList();
 
@@ -901,7 +906,7 @@ public partial class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Последовательно протестировать все альтернативные пресеты.</summary>
+    /// <summary>Последовательно протестировать все пресеты каталога.</summary>
     public async Task TestAllPresetsAsync()
     {
         if (_maintenance is null || _engine.EngineRoot is null)
@@ -918,12 +923,14 @@ public partial class MainViewModel : INotifyPropertyChanged
 
         try
         {
+            // Проверяем все обходы, а не только general-alt: базовый, EXP,
+            // FAKE TLS AUTO и SIMPLE FAKE тоже должны попадать в результаты.
             var presets = _catalog.Presets
-                .Where(p => p.GroupId == "general" && p.Id.StartsWith("general-alt", StringComparison.Ordinal))
+                .OrderBy(p => p.Id, PresetNaming.IdComparer)
                 .ToList();
             if (presets.Count == 0)
             {
-                PresetTestStatus = "Альтернативные пресеты не найдены.";
+                PresetTestStatus = "Пресеты не найдены.";
                 return;
             }
 
@@ -939,10 +946,7 @@ public partial class MainViewModel : INotifyPropertyChanged
                     // всё равно увидит уже проверенные обходы.
                     if (p.Result is not null)
                     {
-                        var sorted = PresetTestResults
-                            .Append(p.Result)
-                            .OrderBy(r => r.ElapsedMs)
-                            .ToList();
+                        var sorted = SortPresetResults(PresetTestResults.Append(p.Result)).ToList();
                         PresetTestResults.Clear();
                         foreach (var item in sorted)
                             PresetTestResults.Add(item);
@@ -951,7 +955,7 @@ public partial class MainViewModel : INotifyPropertyChanged
                 _testCts.Token);
 
             PresetTestResults.Clear();
-            foreach (var result in results.OrderBy(r => r.ElapsedMs))
+            foreach (var result in SortPresetResults(results))
                 PresetTestResults.Add(result);
 
             var ok = results.Count(r => r.Success);
@@ -977,6 +981,15 @@ public partial class MainViewModel : INotifyPropertyChanged
 
     /// <summary>Отменить текущее тестирование пресетов.</summary>
     private void CancelTest() => _testCts?.Cancel();
+
+    /// <summary>
+    /// Сортировка результатов теста: сначала успешные по возрастанию реальной задержки,
+    /// затем неуспешные (у них нет измеренного пинга, поэтому они не должны «выигрывать» сортировку).
+    /// </summary>
+    private static IEnumerable<PresetTestResult> SortPresetResults(IEnumerable<PresetTestResult> results) =>
+        results
+            .OrderBy(r => r.Success ? 0 : 1)
+            .ThenBy(r => r.ElapsedMs ?? long.MaxValue);
 
     /// <summary>Применить пресет по идентификатору (выбрать его как активный).</summary>
     private void ApplyPreset(string? presetId)
@@ -1030,7 +1043,10 @@ public partial class MainViewModel : INotifyPropertyChanged
         var groups = new List<PresetGroupViewModel>();
         foreach (var group in _catalog.Groups)
         {
-            var groupPresets = _catalog.Presets.Where(p => p.GroupId == group.Id).ToList();
+            var groupPresets = _catalog.Presets
+                .Where(p => p.GroupId == group.Id)
+                .OrderBy(p => p.Id, PresetNaming.IdComparer)
+                .ToList();
             var groupVm = new PresetGroupViewModel(group.Id, group.Name, groupPresets, _collapsedGroups);
             groupVm.PropertyChanged += OnGroupIsExpandedChanged;
             groups.Add(groupVm);

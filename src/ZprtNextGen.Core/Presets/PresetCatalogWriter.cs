@@ -25,11 +25,13 @@ public static class PresetCatalogWriter
             Engine = catalog.Engine,
             EngineVersion = catalog.EngineVersion,
             Groups = catalog.Groups.Select(g => new GroupDto { Id = g.Id, Name = g.Name }).ToList(),
-            Presets = catalog.Presets.Select(p => new PresetDto
-            {
-                Id = p.Id, Group = p.GroupId, Name = p.Name,
-                Description = p.Description, Args = p.Arguments
-            }).ToList(),
+            Presets = catalog.Presets
+                .OrderBy(p => p.Id, PresetNaming.IdComparer)
+                .Select(p => new PresetDto
+                {
+                    Id = p.Id, Group = p.GroupId, Name = p.Name,
+                    Description = p.Description, Args = p.Arguments
+                }).ToList(),
         };
         return JsonSerializer.Serialize(dto, Options);
     }

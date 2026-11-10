@@ -89,6 +89,7 @@ public class ConnectivityServiceTests
         {
             Assert.True(r.Success);
             Assert.Null(r.Error);
+            Assert.False(r.TimedOut);
             Assert.InRange(r.ElapsedMs, 0, long.MaxValue);
         });
     }
@@ -166,6 +167,7 @@ public class ConnectivityServiceTests
         {
             Assert.False(r.Success);
             Assert.NotNull(r.Error);
+            Assert.True(r.TimedOut); // это ожидание таймаута, а не измеренная задержка
         });
         Assert.InRange(sw.Elapsed.TotalMilliseconds, 0, 5000);
     }

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -48,10 +49,84 @@ public partial class PresetSelector : UserControl
     private readonly List<Button> _focusableButtons = new(); // все фокусируемые кнопки popup'а (заголовки + пресеты)
     private int _focusedIndex = -1;
 
+    private const int ReopenSuppressionMs = 300;
+    private long _popupClosedTimestamp;
+    private bool _syncingToggle;
+    private bool _closingProgrammatically;
+
     public PresetSelector() => InitializeComponent();
+
+    /// <summary>
+    /// Семантическая активация (UIA Toggle/Invoke) и клавиатура меняют <see cref="ToggleButton.IsChecked"/>,
+    /// поэтому popup открывается именно по этому событию, а не по односторонней привязке.
+    /// </summary>
+    private void OnFieldToggleChecked(object sender, RoutedEventArgs e)
+    {
+        if (_syncingToggle)
+            return;
+
+        // Физический клик по уже открытому полю: popup закрылся этим же нажатием —
+        // не открываем его снова. UIA-активация мышью не сопровождается, её не подавляем.
+        if (Mouse.LeftButton == MouseButtonState.Pressed && WasPopupJustClosed())
+        {
+            SetToggleChecked(false);
+            return;
+        }
+
+        PresetsPopup.IsOpen = true;
+    }
+
+    private void OnFieldToggleUnchecked(object sender, RoutedEventArgs e)
+    {
+        if (_syncingToggle)
+            return;
+
+        PresetsPopup.IsOpen = false;
+    }
+
+    private void OnFieldTogglePreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!PresetsPopup.IsOpen)
+            return;
+
+        // Нажатие по открытому полю закрывает список одним кликом.
+        e.Handled = true;
+        ClosePopup();
+        SetToggleChecked(false);
+    }
+
+    private void OnPopupClosed(object? sender, EventArgs e)
+    {
+        // Закрытие «извне» (клик мимо) запоминаем, чтобы тот же клик не открыл popup повторно.
+        if (!_closingProgrammatically)
+            _popupClosedTimestamp = Stopwatch.GetTimestamp();
+
+        SetToggleChecked(false);
+    }
+
+    private bool WasPopupJustClosed() =>
+        _popupClosedTimestamp != 0 &&
+        Stopwatch.GetElapsedTime(_popupClosedTimestamp) < TimeSpan.FromMilliseconds(ReopenSuppressionMs);
+
+    private void SetToggleChecked(bool value)
+    {
+        if (FieldToggle.IsChecked == value)
+            return;
+
+        _syncingToggle = true;
+        try
+        {
+            FieldToggle.IsChecked = value;
+        }
+        finally
+        {
+            _syncingToggle = false;
+        }
+    }
 
     private void OnPopupOpened(object sender, EventArgs e)
     {
+        SetToggleChecked(true);
         RebuildVisibleLists();
 
         if (_itemButtons.Count > 0)
@@ -203,7 +278,21 @@ public partial class PresetSelector : UserControl
         _focusableButtons[index].Focus();
     }
 
-    private void ClosePopup() => PresetsPopup.IsOpen = false;
+    private void ClosePopup()
+    {
+        if (!PresetsPopup.IsOpen)
+            return;
+
+        _closingProgrammatically = true;
+        try
+        {
+            PresetsPopup.IsOpen = false;
+        }
+        finally
+        {
+            _closingProgrammatically = false;
+        }
+    }
 
     private bool IsFocusInPopup()
     {

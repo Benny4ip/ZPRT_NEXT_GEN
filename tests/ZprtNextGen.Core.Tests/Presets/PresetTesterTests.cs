@@ -99,12 +99,64 @@ public class PresetTesterTests
     }
 
     [Fact]
+    public async Task TestAllAsync_UsesMeasuredLatencyFromConnectivityReport()
+    {
+        var engine = new FakeEngineProcess();
+        var connectivity = new FakeConnectivity
+        {
+            Report = new ConnectivityReport(
+            [
+                new ConnectivityResult(
+                    new ConnectivityTarget("discord", "Discord", "https://discord.com", true), true, 37, null),
+                new ConnectivityResult(
+                    new ConnectivityTarget("youtube", "YouTube", "https://www.youtube.com", true), true, 84, null),
+            ])
+        };
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+
+        var results = await sut.TestAllAsync(
+            [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
+
+        var result = Assert.Single(results);
+        Assert.True(result.Success);
+        Assert.Equal(37, result.ElapsedMs); // лучшая первичная цель, а не длительность паузы
+        Assert.Equal("37 мс", result.LatencyText);
+    }
+
+    [Fact]
+    public async Task TestAllAsync_Timeout_ReportsTimeoutInsteadOfLatency()
+    {
+        var engine = new FakeEngineProcess();
+        var connectivity = new FakeConnectivity
+        {
+            Report = new ConnectivityReport(
+            [
+                new ConnectivityResult(
+                    new ConnectivityTarget("discord", "Discord", "https://discord.com", true),
+                    false, 5000, "Превышено время ожидания", TimedOut: true),
+            ])
+        };
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+
+        var results = await sut.TestAllAsync(
+            [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
+
+        var result = Assert.Single(results);
+        Assert.False(result.Success);
+        Assert.True(result.TimedOut);
+        Assert.Null(result.ElapsedMs);
+        Assert.Equal("таймаут", result.LatencyText);
+        Assert.Equal("Ошибка: Связь не подтверждена", result.StatusText);
+    }
+
+    [Fact]
     public void StatusText_SuccessAndFailure()
     {
         var ok = new PresetTestResult("p1", "Пресет 1", true, 120, null);
         Assert.Equal("Успех", ok.StatusText);
 
-        var fail = new PresetTestResult("p2", "Пресет 2", false, 50, "таймаут");
+        var fail = new PresetTestResult("p2", "Пресет 2", false, null, "таймаут");
         Assert.Equal("Ошибка: таймаут", fail.StatusText);
+        Assert.Equal("—", fail.LatencyText);
     }
 }

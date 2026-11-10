@@ -1,14 +1,22 @@
-using System.Diagnostics;
 using ZprtNextGen.Core.Diagnostics;
 using ZprtNextGen.Core.Process;
 
 namespace ZprtNextGen.Core.Presets;
 
 /// <summary>Результат проверки одного пресета.</summary>
-public record PresetTestResult(string PresetId, string Name, bool Success, long ElapsedMs, string? Detail)
+/// <param name="ElapsedMs">Измеренная HTTP-задержка успешного обхода, либо <c>null</c>,
+/// если задержку измерить не удалось (таймаут/ошибка запуска).</param>
+/// <param name="TimedOut"><c>true</c>, если проверка закончилась таймаутом, а не измеренной задержкой.</param>
+public record PresetTestResult(
+    string PresetId, string Name, bool Success, long? ElapsedMs, string? Detail, bool TimedOut = false)
 {
     /// <summary>Краткий текст результата для отображения в UI.</summary>
     public string StatusText => Success ? "Успех" : $"Ошибка: {Detail ?? "неизвестная"}";
+
+    /// <summary>Задержка для UI: «N мс», «таймаут» или «—» (нет измерения).</summary>
+    public string LatencyText => Success && ElapsedMs is { } ms
+        ? $"{ms} мс"
+        : TimedOut ? "таймаут" : "—";
 }
 
 /// <summary>Прогресс прогона всех пресетов.</summary>
@@ -49,15 +57,14 @@ public sealed class PresetTester : IPresetTester
             ct.ThrowIfCancellationRequested();
 
             var preset = presets[i];
-            var stopwatch = Stopwatch.StartNew();
-            var result = new PresetTestResult(preset.Id, preset.Name, false, 0, null);
+            var result = new PresetTestResult(preset.Id, preset.Name, false, null, null);
 
             try
             {
                 if (_engine.IsForeignInstanceRunning())
                 {
                     result = new PresetTestResult(
-                        preset.Id, preset.Name, false, 0,
+                        preset.Id, preset.Name, false, null,
                         "Обход уже запущен извне. Остановите его перед тестированием пресетов.");
                     results.Add(result);
                     progress?.Report(new PresetTestProgress(i + 1, presets.Count, preset, result));
@@ -72,15 +79,30 @@ public sealed class PresetTester : IPresetTester
                 if (_engine.Status != EngineStatus.Running)
                 {
                     result = new PresetTestResult(
-                        preset.Id, preset.Name, false, stopwatch.ElapsedMilliseconds,
+                        preset.Id, preset.Name, false, null,
                         "Движок (winws) завершился сразу после запуска. Проверьте права администратора, WinDivert/драйвер, файлы списков и аргументы пресета.");
                 }
                 else
                 {
                     var report = await _connectivity.CheckAsync(ct);
-                    result = new PresetTestResult(
-                        preset.Id, preset.Name, report.IsConnected, stopwatch.ElapsedMilliseconds,
-                        report.IsConnected ? null : "Связь не подтверждена");
+                    ct.ThrowIfCancellationRequested();
+
+                    if (report.IsConnected)
+                    {
+                        // Задержка — реальное время ответа лучшей первичной цели, а не длительность паузы/таймаута.
+                        var latency = report.Results
+                            .Where(r => r.Success && r.Target.IsPrimary)
+                            .Select(r => r.ElapsedMs)
+                            .DefaultIfEmpty(0)
+                            .Min();
+                        result = new PresetTestResult(preset.Id, preset.Name, true, latency, null);
+                    }
+                    else
+                    {
+                        result = new PresetTestResult(
+                            preset.Id, preset.Name, false, null, "Связь не подтверждена",
+                            report.Results.Any(r => r.TimedOut));
+                    }
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -89,7 +111,7 @@ public sealed class PresetTester : IPresetTester
             }
             catch (Exception ex)
             {
-                result = new PresetTestResult(preset.Id, preset.Name, false, stopwatch.ElapsedMilliseconds, ex.Message);
+                result = new PresetTestResult(preset.Id, preset.Name, false, null, ex.Message);
             }
             finally
             {

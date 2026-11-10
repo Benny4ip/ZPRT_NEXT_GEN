@@ -61,6 +61,41 @@ public class PresetCatalogLoaderTests
     }
 
     [Fact]
+    public void Load_LexicographicFileOrder_ReturnsNaturalOrder()
+    {
+        var path = WriteTempCatalog(
+            """
+            {
+              "version": 1,
+              "engine": "Flowseal/zapret-discord-youtube",
+              "engineVersion": "1.10.4",
+              "groups": [
+                { "id": "general", "name": "Обычные" }
+              ],
+              "presets": [
+                { "id": "general-alt10", "group": "general", "name": "10", "description": "", "args": "--a" },
+                { "id": "general-alt2", "group": "general", "name": "2", "description": "", "args": "--b" },
+                { "id": "general", "group": "general", "name": "0", "description": "", "args": "--c" },
+                { "id": "general-alt", "group": "general", "name": "1", "description": "", "args": "--d" }
+              ]
+            }
+            """);
+
+        try
+        {
+            var catalog = PresetCatalogLoader.Load(path);
+
+            Assert.Equal(
+                new[] { "general", "general-alt", "general-alt2", "general-alt10" },
+                catalog.Presets.Select(p => p.Id));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Load_PresetWithUnknownGroup_Throws()
     {
         var path = WriteTempCatalog(
