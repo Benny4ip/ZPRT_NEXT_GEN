@@ -27,19 +27,25 @@ public static class AutostartCommand
     {
         return $"/Delete /TN \"{TaskName}\" /F";
     }
+
+    /// <summary>Аргументы для <c>schtasks.exe /Query</c> с подробным выводом.</summary>
+    internal static string BuildQueryArguments()
+    {
+        return $"/Query /TN \"{TaskName}\" /FO LIST /V";
+    }
 }
 
 /// <summary>Управление автозапуском приложения.</summary>
 public interface IAutostartService
 {
-    /// <summary>Признак того, что задача автозапуска зарегистрирована.</summary>
-    bool IsEnabled();
+    /// <summary>Проверить, что задача автозапуска зарегистрирована именно для этого исполняемого файла.</summary>
+    Task<bool> IsEnabledAsync(CancellationToken ct = default);
 
     /// <summary>Зарегистрировать задачу автозапуска.</summary>
-    void Enable();
+    Task EnableAsync(CancellationToken ct = default);
 
-    /// <summary>Удалить задачу автозапуска.</summary>
-    void Disable();
+    /// <summary>Удалить задачу автозапуска. Если задачи нет — ничего не делает.</summary>
+    Task DisableAsync(CancellationToken ct = default);
 }
 
 /// <summary>Автозапуск через запланированную задачу Windows (schtasks.exe).</summary>
@@ -47,10 +53,12 @@ public interface IAutostartService
 public class ScheduledTaskAutostart(string exePath) : IAutostartService
 {
     private const string Executable = "schtasks.exe";
+    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
+
     private readonly string _exePath = exePath;
 
-    /// <summary>Запустить schtasks.exe и вернуть код завершения.</summary>
-    private static int Run(string arguments)
+    /// <summary>Асинхронно запустить schtasks.exe и вернуть код завершения вместе с выводом.</summary>
+    private static async Task<(int ExitCode, string Output)> RunAsync(string arguments, CancellationToken ct)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -63,30 +71,74 @@ public class ScheduledTaskAutostart(string exePath) : IAutostartService
         };
 
         using var process = new Process { StartInfo = startInfo };
-        process.Start();
-        process.WaitForExit();
-        return process.ExitCode;
+        if (!process.Start())
+            throw new InvalidOperationException("Не удалось запустить schtasks.exe.");
+
+        // Читаем потоки сразу, иначе переполнение буфера может заблокировать процесс.
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(CommandTimeout);
+
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { /* лучшая попытка */ }
+            throw new TimeoutException($"schtasks.exe не ответил за {CommandTimeout.TotalSeconds:0} секунд.");
+        }
+
+        var output = await outputTask.ConfigureAwait(false);
+        var error = await errorTask.ConfigureAwait(false);
+        return (process.ExitCode, string.IsNullOrWhiteSpace(error) ? output : output + Environment.NewLine + error);
     }
 
-    public bool IsEnabled()
+    public async Task<bool> IsEnabledAsync(CancellationToken ct = default)
     {
-        var exitCode = Run($"/Query /TN \"{AutostartCommand.TaskName}\" /FO CSV");
-        return exitCode == 0;
-    }
+        if (string.IsNullOrWhiteSpace(_exePath))
+            return false;
 
-    public void Enable()
-    {
-        var exitCode = Run(AutostartCommand.BuildCreateArguments(_exePath));
+        var (exitCode, output) = await RunAsync(AutostartCommand.BuildQueryArguments(), ct).ConfigureAwait(false);
         if (exitCode != 0)
-            throw new InvalidOperationException(
-                $"Не удалось включить автозапуск задачи \"{AutostartCommand.TaskName}\" (код завершения {exitCode}).");
+            return false;
+
+        // Задача с тем же именем могла быть создана другой копией программы —
+        // считаем автозапуск включённым только если путь совпадает.
+        var normalized = output.Replace("\\\\", "\\");
+        return normalized.Contains(_exePath.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    public void Disable()
+    public async Task EnableAsync(CancellationToken ct = default)
     {
-        var exitCode = Run(AutostartCommand.BuildDeleteArguments());
+        if (string.IsNullOrWhiteSpace(_exePath))
+            throw new InvalidOperationException("Не удалось определить путь к исполняемому файлу приложения.");
+
+        var (exitCode, output) = await RunAsync(
+            AutostartCommand.BuildCreateArguments(_exePath), ct).ConfigureAwait(false);
+
         if (exitCode != 0)
+        {
             throw new InvalidOperationException(
-                $"Не удалось отключить автозапуск задачи \"{AutostartCommand.TaskName}\" (код завершения {exitCode}).");
+                $"Не удалось включить автозапуск задачи \"{AutostartCommand.TaskName}\" (код завершения {exitCode}). {output}".Trim());
+        }
+    }
+
+    public async Task DisableAsync(CancellationToken ct = default)
+    {
+        // Удаляем только свою задачу: чужую задачу с тем же именем не трогаем.
+        if (!await IsEnabledAsync(ct).ConfigureAwait(false))
+            return;
+
+        var (exitCode, output) = await RunAsync(
+            AutostartCommand.BuildDeleteArguments(), ct).ConfigureAwait(false);
+
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Не удалось отключить автозапуск задачи \"{AutostartCommand.TaskName}\" (код завершения {exitCode}). {output}".Trim());
+        }
     }
 }

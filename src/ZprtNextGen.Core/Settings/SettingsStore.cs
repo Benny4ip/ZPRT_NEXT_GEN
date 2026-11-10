@@ -33,6 +33,8 @@ public sealed class SettingsStore : ISettingsStore
         Converters = { new JsonStringEnumConverter() },
     };
 
+    private readonly object _saveLock = new();
+
     public string Path { get; }
 
     public SettingsStore(string path)
@@ -55,11 +57,18 @@ public sealed class SettingsStore : ISettingsStore
         try
         {
             var json = File.ReadAllText(Path);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            return Normalize(loaded);
         }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        catch (JsonException)
         {
+            // Повреждённый JSON: сохраняем копию и продолжаем с настройками по умолчанию.
             MoveToBadIgnoreFailure();
+            return new AppSettings();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Файл временно недоступен (блокировка/права) — не удаляем его, просто используем значения по умолчанию.
             return new AppSettings();
         }
     }
@@ -68,18 +77,40 @@ public sealed class SettingsStore : ISettingsStore
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        var directory = System.IO.Path.GetDirectoryName(Path);
-        if (!string.IsNullOrEmpty(directory))
+        // Сериализация/запись могут вызываться из разных потоков (UI, автообновление, трей).
+        lock (_saveLock)
         {
-            Directory.CreateDirectory(directory);
-        }
+            var directory = System.IO.Path.GetDirectoryName(Path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
 
-        var json = JsonSerializer.Serialize(settings, JsonOptions);
-        var tempFile = Path + ".tmp";
-        // File.WriteAllText пишет UTF-8 без BOM.
-        File.WriteAllText(tempFile, json);
-        File.Move(tempFile, Path, overwrite: true);
+            var json = JsonSerializer.Serialize(settings, JsonOptions);
+            var tempFile = Path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+
+            try
+            {
+                // File.WriteAllText пишет UTF-8 без BOM.
+                File.WriteAllText(tempFile, json);
+                File.Move(tempFile, Path, overwrite: true);
+            }
+            catch
+            {
+                try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { /* лучшая попытка */ }
+                throw;
+            }
+        }
     }
+
+    /// <summary>Привести настройки, прочитанные из JSON, к допустимым значениям.</summary>
+    private static AppSettings Normalize(AppSettings settings) => settings with
+    {
+        EnginePath = string.IsNullOrWhiteSpace(settings.EnginePath) ? null : settings.EnginePath,
+        PresetId = string.IsNullOrWhiteSpace(settings.PresetId) ? "general" : settings.PresetId,
+        Theme = string.IsNullOrWhiteSpace(settings.Theme) ? "dark" : settings.Theme,
+        CollapsedGroups = settings.CollapsedGroups ?? [],
+    };
 
     private void MoveToBadIgnoreFailure()
     {

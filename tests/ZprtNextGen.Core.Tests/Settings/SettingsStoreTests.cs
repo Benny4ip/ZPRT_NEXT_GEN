@@ -103,4 +103,31 @@ public class SettingsStoreTests
         Assert.True(File.Exists(path));
         Assert.Equal("light", store.Load().Theme);
     }
+
+    [Fact]
+    public void Load_NullThemeAndCollapsedGroups_NormalizesToDefaults()
+    {
+        var path = TempSettingsPath();
+        File.WriteAllText(path, """{"theme":null,"collapsedGroups":null,"presetId":null,"enginePath":"   "}""");
+
+        var settings = new SettingsStore(path).Load();
+
+        Assert.Equal("dark", settings.Theme);
+        Assert.Empty(settings.CollapsedGroups);
+        Assert.Equal("general", settings.PresetId);
+        Assert.Null(settings.EnginePath);
+    }
+
+    [Fact]
+    public void Save_ConcurrentCalls_LeaveValidFileAndNoTempFiles()
+    {
+        var path = TempSettingsPath();
+        var store = new SettingsStore(path);
+
+        Parallel.For(0, 20, i => store.Save(new AppSettings { PresetId = "preset-" + i }));
+
+        var loaded = store.Load();
+        Assert.StartsWith("preset-", loaded.PresetId, StringComparison.Ordinal);
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
+    }
 }

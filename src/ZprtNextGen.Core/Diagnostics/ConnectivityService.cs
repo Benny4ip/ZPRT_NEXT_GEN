@@ -57,13 +57,21 @@ public sealed class ConnectivityService(HttpClient client) : IConnectivityServic
                 stopwatch.ElapsedMilliseconds,
                 null);
         }
-        catch (OperationCanceledException ex)
+        catch (HttpRequestException ex)
         {
             stopwatch.Stop();
             return new ConnectivityResult(target, false, stopwatch.ElapsedMilliseconds, ex.Message);
         }
-        catch (HttpRequestException ex)
+        catch (OperationCanceledException)
         {
+            // Отмена пользователем или таймаут HttpClient — результат проверки, а не падение всего прогона.
+            stopwatch.Stop();
+            return new ConnectivityResult(
+                target, false, stopwatch.ElapsedMilliseconds, "Превышено время ожидания или проверка отменена.");
+        }
+        catch (Exception ex)
+        {
+            // Любая неожиданная ошибка (DNS, сокеты, битый URI) не должна ронять проверку остальных целей.
             stopwatch.Stop();
             return new ConnectivityResult(target, false, stopwatch.ElapsedMilliseconds, ex.Message);
         }
