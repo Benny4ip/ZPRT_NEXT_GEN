@@ -1,4 +1,4 @@
-﻿﻿#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
     Полная сборка релизных артефактов ZPRT_NEXT_GEN: Standard + Portable.
@@ -17,7 +17,7 @@
 param(
     [string] $EnginePath,
 
-    [string] $Version = "1.0.1-beta-FIX",
+    [string] $Version = "1.0.2-beta-FIX",
 
     [string] $OutputDir = "artifacts",
 

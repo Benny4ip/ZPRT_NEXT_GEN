@@ -1,4 +1,4 @@
-﻿﻿#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
     Упаковка релиза ZPRT_NEXT_GEN: вывод dotnet publish + движок winws +
@@ -24,7 +24,7 @@ param(
 
     [string] $OutputZip = "publish\ZPRT_NEXT_GEN-win-x64.zip",
 
-    [string] $Version = "1.0.1-beta-FIX"
+    [string] $Version = "1.0.2-beta-FIX"
 )
 
 $ErrorActionPreference = 'Stop'

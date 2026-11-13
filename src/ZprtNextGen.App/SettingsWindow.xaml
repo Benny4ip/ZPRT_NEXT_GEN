@@ -271,19 +271,24 @@
       <!-- 5. Движок и обновления -->
       <Border Style="{StaticResource Card}" Margin="0,12,0,0">
         <StackPanel Margin="4">
-          <TextBlock Text="Движок и обновления" Style="{StaticResource SectionTitle}" />
+          <TextBlock Text="{Binding EngineSectionTitle}" Style="{StaticResource SectionTitle}" />
 
-          <Grid Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0" Text="{Binding EnginePath, Mode=OneWay}" IsReadOnly="True"
-                     Style="{StaticResource DarkTextBox}" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Обзор…" Click="OnBrowseEngine"
-                    Style="{StaticResource SmallButton}" Margin="10,0,0,0" MinWidth="90" />
-          </Grid>
-          <TextBlock Text="{Binding EngineStatusText}" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+          <StackPanel Visibility="{Binding IsStandard, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid Margin="0,0,0,8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBox Grid.Column="0" Text="{Binding EnginePath, Mode=OneWay}" IsReadOnly="True"
+                       Style="{StaticResource DarkTextBox}" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Content="Обзор…" Click="OnBrowseEngine"
+                      Style="{StaticResource SmallButton}" Margin="10,0,0,0" MinWidth="90" />
+            </Grid>
+            <TextBlock Text="{Binding EngineStatusText}" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+            <TextBlock Text="Укажи папку движка zapret (внутри должны быть bin\winws.exe и lists)."
+                       Style="{StaticResource Muted}" Margin="0,0,0,10" TextWrapping="Wrap" />
+          </StackPanel>
+
           <TextBlock Text="{Binding EngineVersion, StringFormat='Версия движка: {0}'}"
                      Style="{StaticResource Muted}" Margin="0,0,0,10" />
 
@@ -291,14 +296,15 @@
             <Button Content="Проверить обновление" Command="{Binding CheckUpdatesCommand}"
                     Style="{StaticResource SmallButton}" MinWidth="140" />
             <Button Content="Обновить движок" Command="{Binding UpdateEngineCommand}"
-                    Style="{StaticResource SmallButton}" MinWidth="130" Margin="8,0,0,0" />
+                    Style="{StaticResource SmallButton}" MinWidth="130" Margin="8,0,0,0"
+                    Visibility="{Binding IsStandard, Converter={StaticResource BoolToVisibilityConverter}}" />
             <Button Content="Обновить программу" Command="{Binding UpdateAppCommand}"
                     Style="{StaticResource SmallButton}" MinWidth="140" Margin="8,0,0,0" />
             <Button Content="GitHub releases" Command="{Binding OpenGitHubCommand}"
                     Style="{StaticResource SmallButton}" MinWidth="110" Margin="8,0,0,0" />
           </StackPanel>
 
-          <TextBlock Text="Движок встроен в portable-версию. Обновите программу целиком."
+          <TextBlock Text="Движок встроен в приложение и обновляется вместе с программой."
                      Style="{StaticResource Muted}" Margin="0,0,0,6"
                      Visibility="{Binding IsPortable, Converter={StaticResource BoolToVisibilityConverter}}" />
           <TextBlock Text="{Binding UpdateStatusText}" Style="{StaticResource Muted}" Margin="0,0,0,6" />

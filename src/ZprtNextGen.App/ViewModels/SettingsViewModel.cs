@@ -1,4 +1,4 @@
-﻿﻿#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -173,6 +173,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string PresetsPath { get; }
 
     public bool IsPortable { get; }
+
+    /// <summary>Обычная сборка с внешней папкой движка (не single-file).</summary>
+    public bool IsStandard => !IsPortable;
+
+    /// <summary>Заголовок секции: в portable движок не настраивается.</summary>
+    public string EngineSectionTitle => IsPortable ? "Обновления" : "Движок и обновления";
 
     public string EngineVersion => _catalog.EngineVersion;
 
@@ -808,8 +814,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             UpdateProgress = 0;
             UpdateStatusText = "Проверяем обновления…";
 
-            var engineLatest = await _gitHub.GetLatestAsync(
-                "Flowseal/zapret-discord-youtube", CancellationToken.None);
+            var engineLatest = IsPortable
+                ? null
+                : await _gitHub.GetLatestAsync("Flowseal/zapret-discord-youtube", CancellationToken.None);
             UpdateProgress = 50;
 
             var appLatest = await _gitHub.GetLatestAsync(
@@ -817,7 +824,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             UpdateProgress = 100;
 
             var text = string.Empty;
-            if (engineLatest is not null)
+            if (IsPortable)
+            {
+                text = "Движок встроен в приложение и обновляется вместе с программой. ";
+            }
+            else if (engineLatest is not null)
             {
                 text += VersionComparer.IsNewer(engineLatest.Tag, _catalog.EngineVersion)
                     ? $"Доступна версия движка {engineLatest.Tag} (установлена {_catalog.EngineVersion}). "
@@ -860,7 +871,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         if (IsPortable)
         {
-            UpdateStatusText = "Движок встроен в portable-версию. Обновите программу целиком.";
+            UpdateStatusText = "Движок встроен в приложение. Обновите программу целиком.";
             return;
         }
 
