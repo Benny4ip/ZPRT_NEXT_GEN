@@ -13,7 +13,7 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <AssemblyName>ZprtNextGen</AssemblyName>
-    <Version Condition="'$(Version)' == ''">1.0.0-beta.1</Version>
+    <Version Condition="'$(Version)' == ''">1.0.1-beta-FIX</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>

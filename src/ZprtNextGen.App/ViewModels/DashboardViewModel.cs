@@ -1,4 +1,4 @@
-#nullable enable
+﻿﻿#nullable enable
 
 using System;
 using System.ComponentModel;
@@ -414,8 +414,14 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         _retryCommand.RaiseCanExecuteChanged();
     }
 
-    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        var handler = PropertyChanged;
+        if (handler is null)
+            return;
+
+        _dispatcher.Post(() => handler.Invoke(this, new PropertyChangedEventArgs(propertyName)));
+    }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {

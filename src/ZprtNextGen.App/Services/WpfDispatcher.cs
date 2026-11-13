@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Windows;
@@ -8,7 +8,7 @@ namespace ZprtNextGen.App.Services;
 
 /// <summary>
 /// Реализация <see cref="ZprtNextGen.App.ViewModels.IUiDispatcher"/> через
-/// <see cref="Application.Current"/>.Dispatcher.BeginInvoke.
+/// <see cref="Application.Current"/>.Dispatcher.
 /// </summary>
 public sealed class WpfDispatcher : IUiDispatcher
 {
@@ -19,8 +19,15 @@ public sealed class WpfDispatcher : IUiDispatcher
 
         var application = Application.Current;
         if (application is not null && application.Dispatcher is not null)
-            application.Dispatcher.BeginInvoke(action);
+        {
+            if (application.Dispatcher.CheckAccess())
+                action();
+            else
+                application.Dispatcher.BeginInvoke(action);
+        }
         else
+        {
             action();
+        }
     }
 }

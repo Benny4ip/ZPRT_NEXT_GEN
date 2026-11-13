@@ -1,6 +1,7 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
+using System.Windows;
 using System.Windows.Input;
 
 namespace ZprtNextGen.App.ViewModels;
@@ -30,5 +31,20 @@ public class RelayCommand : ICommand
     public void Execute(object? parameter) => _execute(parameter);
 
     /// <summary>Уведомить подписчики об изменении <see cref="ICommand.CanExecute"/>.</summary>
-    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    public void RaiseCanExecuteChanged()
+    {
+        var handler = CanExecuteChanged;
+        if (handler is null)
+            return;
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(handler, this, EventArgs.Empty);
+        }
+        else
+        {
+            handler(this, EventArgs.Empty);
+        }
+    }
 }

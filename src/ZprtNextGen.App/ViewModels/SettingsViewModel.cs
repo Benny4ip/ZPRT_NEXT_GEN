@@ -1,4 +1,4 @@
-﻿#nullable enable
+﻿﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -809,11 +809,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             UpdateStatusText = "Проверяем обновления…";
 
             var engineLatest = await _gitHub.GetLatestAsync(
-                "Flowseal/zapret-discord-youtube", CancellationToken.None).ConfigureAwait(false);
+                "Flowseal/zapret-discord-youtube", CancellationToken.None);
             UpdateProgress = 50;
 
             var appLatest = await _gitHub.GetLatestAsync(
-                "Benny4ip/ZPRT_NEXT_GEN", CancellationToken.None).ConfigureAwait(false);
+                "Benny4ip/ZPRT_NEXT_GEN", CancellationToken.None);
             UpdateProgress = 100;
 
             var text = string.Empty;
@@ -848,8 +848,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
         finally
         {
-            IsMaintenanceBusy = false;
-            UpdateProgress = 0;
+            _dispatcher.Post(() =>
+            {
+                IsMaintenanceBusy = false;
+                UpdateProgress = 0;
+            });
         }
     }
 
@@ -1134,18 +1137,21 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     private void RefreshCommands()
     {
-        _testAllPresetsCommand.RaiseCanExecuteChanged();
-        _cancelTestCommand.RaiseCanExecuteChanged();
-        _usePresetCommand.RaiseCanExecuteChanged();
-        _makeAutomaticCommand.RaiseCanExecuteChanged();
-        _toggleAutostartCommand.RaiseCanExecuteChanged();
-        _checkUpdatesCommand.RaiseCanExecuteChanged();
-        _updateEngineCommand.RaiseCanExecuteChanged();
-        _updateAppCommand.RaiseCanExecuteChanged();
-        _checkConnectivityCommand.RaiseCanExecuteChanged();
-        _fullDiscordResetCommand.RaiseCanExecuteChanged();
-        _restartConnectionCommand.RaiseCanExecuteChanged();
-        OnPropertyChanged(nameof(IsBusy));
+        _dispatcher.Post(() =>
+        {
+            _testAllPresetsCommand.RaiseCanExecuteChanged();
+            _cancelTestCommand.RaiseCanExecuteChanged();
+            _usePresetCommand.RaiseCanExecuteChanged();
+            _makeAutomaticCommand.RaiseCanExecuteChanged();
+            _toggleAutostartCommand.RaiseCanExecuteChanged();
+            _checkUpdatesCommand.RaiseCanExecuteChanged();
+            _updateEngineCommand.RaiseCanExecuteChanged();
+            _updateAppCommand.RaiseCanExecuteChanged();
+            _checkConnectivityCommand.RaiseCanExecuteChanged();
+            _fullDiscordResetCommand.RaiseCanExecuteChanged();
+            _restartConnectionCommand.RaiseCanExecuteChanged();
+            OnPropertyChanged(nameof(IsBusy));
+        });
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -1158,6 +1164,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         return true;
     }
 
-    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        var handler = PropertyChanged;
+        if (handler is null)
+            return;
+
+        _dispatcher.Post(() => handler.Invoke(this, new PropertyChangedEventArgs(propertyName)));
+    }
 }

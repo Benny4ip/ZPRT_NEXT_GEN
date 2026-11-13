@@ -15,6 +15,13 @@ public class VersionComparerTests
     [InlineData(null, null, 0)]
     [InlineData("2.0.0", "1.9.9", 1)]
     [InlineData("1.2", "1.2.0", 0)]
+    [InlineData("1.0.1-beta-FIX", "1.0.0-beta.1", 1)]
+    [InlineData("1.0.0-beta.1", "1.0.1-beta-FIX", -1)]
+    [InlineData("1.0.0", "1.0.0-beta.1", 1)]
+    [InlineData("1.0.0-beta.1", "1.0.0", -1)]
+    [InlineData("1.0.1-beta-FIX", "1.0.1-beta-FIX", 0)]
+    [InlineData("v1.0.1-beta-FIX", "1.0.1-beta-FIX", 0)]
+
     public void Compare_RanksVersions(string? a, string? b, int expectedSign)
     {
         var result = VersionComparer.Compare(a, b);
