@@ -216,7 +216,17 @@ public partial class App : Application
         {
             var iconPath = Path.Combine(baseDirectory, "assets", "icon.ico");
             if (File.Exists(iconPath))
+            {
                 icon = new Icon(iconPath);
+            }
+            else
+            {
+                var exePath = Environment.ProcessPath ?? Environment.GetCommandLineArgs()[0];
+                if (!string.IsNullOrWhiteSpace(exePath) && File.Exists(exePath))
+                {
+                    icon = Icon.ExtractAssociatedIcon(exePath);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -274,21 +284,29 @@ public partial class App : Application
                 _healthMonitor.Start();
             }
 
-            if (!options.AutoConnect)
-                return;
-
-            var usesSavedProfile = config.Connection.Mode == ConnectionMode.Manual
-                || config.Connection.AutoProfile is not null;
-
-            if (!usesSavedProfile)
+            if (options.AutoConnect)
             {
-                _tray?.ShowBalloon("ZPRT NEXT GEN",
-                    "Нет сохранённого профиля. Открой приложение и нажми «Включить».");
+                var usesSavedProfile = config.Connection.Mode == ConnectionMode.Manual
+                    || config.Connection.AutoProfile is not null;
+
+                if (!usesSavedProfile)
+                {
+                    _tray?.ShowBalloon("ZPRT NEXT GEN",
+                        "Нет сохранённого профиля. Открой приложение и нажми «Включить».");
+                    return;
+                }
+
+                logger.Info("Автозапуск: поднимаем сохранённый обход.");
+                await _coordinator.ConnectAsync(CancellationToken.None);
                 return;
             }
 
-            logger.Info("Автозапуск: поднимаем сохранённый обход.");
-            await _coordinator.ConnectAsync(CancellationToken.None);
+            // Первый запуск: если нет сохранённого профиля и не ручной режим, сразу запускаем тестирование всех 22 обходов
+            if (!options.StartInTray && config.Connection.Mode == ConnectionMode.Auto && config.Connection.AutoProfile is null)
+            {
+                logger.Info("Первый запуск приложения: автоматический старт подбора обхода.");
+                await _coordinator.ConnectAsync(CancellationToken.None);
+            }
         }
         catch (Exception ex)
         {
@@ -446,9 +464,7 @@ public partial class App : Application
             }
         }
 
-        MessageBox.Show(message, "ZPRT NEXT GEN — portable",
-            MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Error);
-
+        Environment.ExitCode = ok ? 0 : 1;
         Shutdown(ok ? 0 : 1);
     }
 
@@ -584,3 +600,6 @@ public partial class App : Application
         base.OnExit(e);
     }
 }
+
+
+

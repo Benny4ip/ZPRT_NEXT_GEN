@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO.Compression;
 
 namespace ZprtNextGen.Core.Updates;
@@ -6,13 +6,13 @@ namespace ZprtNextGen.Core.Updates;
 /// <summary>План обновления самой программы: скрипт-перезапуск + извлечённый новый файл.</summary>
 public record AppUpdatePlan(string ScriptPath, string NewExecutablePath, string TargetExecutablePath);
 
-/// <summary>Обновление портабельной программы: скачать zip, подготовить скрипт перезапуска.</summary>
+/// <summary>Обновление программы: скачать zip или raw exe, подготовить скрипт перезапуска.</summary>
 public interface IAppUpdater
 {
-    /// <summary>Скачать релиз, извлечь <c>ZprtNextGen.exe</c> и составить скрипт, который после выхода
+    /// <summary>Скачать релиз, извлечь/подготовить <c>ZprtNextGen.exe</c> и составить скрипт, который после выхода
     /// текущего процесса заменит исполняемый файл и запустит новую версию.</summary>
     Task<AppUpdatePlan> PrepareAsync(ReleaseInfo release, string appDirectory,
-        IProgress<string>? progress, CancellationToken ct);
+        IProgress<string>? progress, CancellationToken ct, bool isPortable = false);
 
     /// <summary>Запустить скрипт обновления (обязательно после завершения текущего процесса).</summary>
     void Launch(AppUpdatePlan plan);
@@ -79,47 +79,52 @@ public sealed class AppUpdater : IAppUpdater
     }
 
     public async Task<AppUpdatePlan> PrepareAsync(ReleaseInfo release, string appDirectory,
-        IProgress<string>? progress, CancellationToken ct)
+        IProgress<string>? progress, CancellationToken ct, bool isPortable = false)
     {
         ArgumentNullException.ThrowIfNull(release);
         ArgumentException.ThrowIfNullOrWhiteSpace(appDirectory);
 
-        var zipAsset = release.FindZip()
-            ?? throw new InvalidDataException("В релизе программы не найден .zip-ассет для скачивания.");
+        var asset = release.FindAppAsset(isPortable)
+            ?? throw new InvalidDataException("В релизе программы не найден подходящий файл для скачивания.");
 
-        var tempZip = Path.GetTempFileName();
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "Zprt_AppUpdate_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
         try
         {
-            progress?.Report("Скачивание программы...");
-            await _downloader.DownloadAsync(new Uri(zipAsset.DownloadUrl), tempZip, null, ct);
-
-            // Распакованные файлы хранятся до выполнения скрипта обновления (скрипт их удалит).
-            var tempExtract = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-            try
+            string newExe;
+            if (asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             {
-                ZipFile.ExtractToDirectory(tempZip, tempExtract);
+                progress?.Report("Скачивание portable-версии программы...");
+                newExe = Path.Combine(tempDirectory, "ZprtNextGen.exe");
+                await _downloader.DownloadAsync(new Uri(asset.DownloadUrl), newExe, null, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                progress?.Report("Скачивание программы...");
+                var tempZip = Path.Combine(tempDirectory, "update.zip");
+                await _downloader.DownloadAsync(new Uri(asset.DownloadUrl), tempZip, null, ct).ConfigureAwait(false);
 
-                var newExe = Directory.GetFiles(tempExtract, "ZprtNextGen.exe", SearchOption.AllDirectories)
+                ZipFile.ExtractToDirectory(tempZip, tempDirectory);
+                File.Delete(tempZip);
+
+                newExe = Directory.GetFiles(tempDirectory, "ZprtNextGen.exe", SearchOption.AllDirectories)
                     .FirstOrDefault()
                     ?? throw new InvalidDataException("В архиве программы не найден ZprtNextGen.exe.");
-
-                var targetExe = Path.Combine(appDirectory, "ZprtNextGen.exe");
-                var script = CreateScript(Environment.ProcessId, newExe, targetExe, tempExtract);
-
-                progress?.Report("Готово к перезапуску.");
-                return new AppUpdatePlan(script, newExe, targetExe);
             }
-            catch
-            {
-                // Не оставляем временную папку при неудачной подготовке.
-                try { if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, recursive: true); } catch { }
-                throw;
-            }
+
+            var targetExe = Path.Combine(appDirectory, "ZprtNextGen.exe");
+
+            var script = CreateScript(Environment.ProcessId, newExe, targetExe, tempDirectory);
+
+            progress?.Report("Готово к перезапуску.");
+            return new AppUpdatePlan(script, newExe, targetExe);
         }
-        finally
+        catch
         {
-            if (File.Exists(tempZip))
-                File.Delete(tempZip);
+            try { if (Directory.Exists(tempDirectory)) Directory.Delete(tempDirectory, recursive: true); } catch { }
+            throw;
         }
     }
 }
+
