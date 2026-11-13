@@ -13,7 +13,7 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <AssemblyName>ZprtNextGen</AssemblyName>
-    <Version>0.2.0</Version>
+    <Version Condition="'$(Version)' == ''">1.0.0-beta.1</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
@@ -22,12 +22,23 @@
     <DebugType>embedded</DebugType>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Portable)' == 'true'">
+    <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Portable)' == 'true' and '$(PortableEngineZip)' != ''">
+    <EmbeddedResource Include="$(PortableEngineZip)" LogicalName="ZprtNextGen.Engine.zip" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ZprtNextGen.Core\ZprtNextGen.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\..\assets\icon.ico" Link="assets\icon.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Portable)' != 'true'">
     <Content Include="..\..\presets\presets.json" Link="presets\presets.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

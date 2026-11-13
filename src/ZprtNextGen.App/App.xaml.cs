@@ -3,13 +3,16 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using ZprtNextGen.App.Services;
 using ZprtNextGen.App.ViewModels;
+using ZprtNextGen.Core.Connection;
 using ZprtNextGen.Core.Diagnostics;
+using ZprtNextGen.Core.Discord;
 using ZprtNextGen.Core.Engine;
 using ZprtNextGen.Core.Logging;
 using ZprtNextGen.Core.Presets;
@@ -21,8 +24,8 @@ using ZprtNextGen.Core.Updates;
 namespace ZprtNextGen.App;
 
 /// <summary>
-/// Точка входа приложения: single instance, проверка прав администратора,
-/// загрузка настроек и каталога пресетов, композиция сервисов, жизненный цикл окна и трея.
+/// Точка входа: один экземпляр, права администратора, portable-движок, конфиг,
+/// каталог пресетов, координатор подключения, трей и жизненный цикл окон.
 /// </summary>
 public partial class App : Application
 {
@@ -30,20 +33,26 @@ public partial class App : Application
 
     private SingleInstanceGuard? _guard;
     private TrayService? _tray;
-    private MainViewModel? _vm;
     private MainWindow? _mainWindow;
+    private SettingsWindow? _settingsWindow;
+    private DashboardViewModel? _dashboard;
+    private SettingsViewModel? _settings;
+    private ConnectionCoordinator? _coordinator;
+    private HealthMonitor? _healthMonitor;
     private EngineProcessManager? _engineProcess;
     private EventWaitHandle? _showSignal;
     private Thread? _showSignalThread;
-    private bool _vmShutdown;
+    private IAppLogger? _logger;
+    private bool _shuttingDown;
     private bool _isHandlingException;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        // 1. Права администратора (требуются для WinDivert). Проверяем раньше мьютекса:
-        //    создание Global\-мьютекса без нужных прав само может бросить исключение.
+        var options = AppStartupOptions.Parse(e.Args);
+
+        // Права администратора нужны для WinDivert. Проверяем раньше мьютекса.
         if (!SingleInstanceGuard.IsElevated())
         {
             MessageBox.Show("Запустите приложение от имени администратора", "ZPRT NEXT GEN",
@@ -52,8 +61,6 @@ public partial class App : Application
             return;
         }
 
-        // 2. Один экземпляр приложения. Повторный запуск не просто сообщает об этом,
-        //    а просит уже работающий экземпляр показать окно на переднем плане.
         _guard = new SingleInstanceGuard("main");
         if (!_guard.IsOwner)
         {
@@ -64,177 +71,232 @@ public partial class App : Application
 
         StartShowSignalListener();
 
-        // 3. Логгер (раньше, чтобы фиксировать ошибки старта и пересоздавать папку логов).
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var logger = new AppLogger(Path.Combine(appData, "ZPRT_NEXT_GEN", "logs"));
-        logger.Info($"Запуск ZPRT NEXT GEN v{typeof(App).Assembly.GetName().Version}, base='{AppContext.BaseDirectory}'.");
+        var logsDirectory = Path.Combine(appData, "ZPRT_NEXT_GEN", "logs");
+        var logger = new AppLogger(logsDirectory);
+        _logger = logger;
+        logger.Info(
+            $"Запуск ZPRT NEXT GEN v{typeof(App).Assembly.GetName().Version}, аргументы: {string.Join(' ', e.Args)}.");
 
-        // 4. Настройки.
-        var settingsStore = SettingsStore.CreateDefault();
-        var settings = settingsStore.Load();
+        InstallGlobalExceptionHandlers(logger, logsDirectory);
 
-        // 5. Каталог пресетов.
-        var catalogPath = Path.Combine(AppContext.BaseDirectory, "presets", "presets.json");
-        PresetCatalog catalog;
-        if (!File.Exists(catalogPath))
+        try
         {
-            logger.Error($"Каталог пресетов не найден: {catalogPath}");
-            MessageBox.Show($"Каталог пресетов не найден: {catalogPath}", "ZPRT NEXT GEN",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            catalog = new PresetCatalog(0, string.Empty, string.Empty, [], []);
+            Start(options, logger, logsDirectory);
         }
-        else
+        catch (Exception ex)
         {
-            try
-            {
-                catalog = PresetCatalogLoader.Load(catalogPath);
-            }
-            catch (Exception ex)
-            {
-                // Повреждённый каталог не должен мешать запуску: показываем ошибку и работаем без пресетов.
-                logger.Error($"Не удалось загрузить каталог пресетов '{catalogPath}': {ex.Message}", ex);
-                MessageBox.Show(
-                    $"Не удалось загрузить каталог пресетов:\n{ex.Message}",
-                    "ZPRT NEXT GEN",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                catalog = new PresetCatalog(0, string.Empty, string.Empty, [], []);
-            }
-        }
-
-        // 6. Движок.
-        var engine = EngineLocator.Locate(settings.EnginePath, AppContext.BaseDirectory);
-        if (engine.IsValid)
-        {
-            // Явный fallback-лог: при EnginePath = null видно, какой движок выбран автоматически.
-            logger.Info(string.IsNullOrWhiteSpace(settings.EnginePath)
-                ? $"EnginePath не задан; движок найден автоматически: '{engine.EngineRoot}'."
-                : $"Движок: '{engine.EngineRoot}' (EnginePath из настроек: '{settings.EnginePath}').");
-        }
-        else
-        {
-            logger.Error($"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}. EnginePath: '{settings.EnginePath ?? "не задан"}'. Искали от '{AppContext.BaseDirectory}'.");
+            logger.Error("Не удалось запустить приложение: " + ex, ex);
             MessageBox.Show(
-                $"Движок не найден. Отсутствуют файлы: {string.Join(", ", engine.MissingFiles)}",
+                "Не удалось запустить ZPRT NEXT GEN:\n" + ex.Message +
+                $"\n\nПодробности в журнале:\n{logsDirectory}",
                 "ZPRT NEXT GEN",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+            Shutdown(1);
+        }
+    }
+
+    private void Start(AppStartupOptions options, IAppLogger logger, string logsDirectory)
+    {
+        var version = typeof(App).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+        var embeddedEngine = PortableEngineInstaller.ReadEmbeddedEngine(typeof(App).Assembly);
+        var isPortable = embeddedEngine is { Length: > 0 };
+
+        if (options.PortableCheck)
+        {
+            RunPortableCheck(embeddedEngine, version, logger);
+            return;
         }
 
-        // 7. Сервисы.
+        // Portable: распаковать встроенный движок в кэш %LOCALAPPDATA%.
+        PortableEngineResult? portableEngine = null;
+        if (isPortable)
+        {
+            var installer = new PortableEngineInstaller(embeddedEngine, version, logger: logger);
+            portableEngine = installer.InstallAsync(CancellationToken.None).GetAwaiter().GetResult();
+            if (portableEngine is not null)
+                logger.Info("Portable-движок: " + portableEngine.EngineRoot);
+        }
+
+        var baseDirectory = AppContext.BaseDirectory;
+        var configStore = ConfigStore.CreateDefault();
+        var config = configStore.Load();
+
+        var presetsPath = portableEngine?.PresetsPath
+            ?? Path.Combine(baseDirectory, "presets", "presets.json");
+        var baseCatalog = LoadCatalog(presetsPath, logger);
+        var catalog = PresetCatalogBuilder.Build(baseCatalog, config.CustomPresets);
+
+        var resolveEngine = portableEngine is not null
+            ? () => new EngineValidation(true, portableEngine.EngineRoot, [])
+            : new Func<EngineValidation>(() => EngineLocator.Locate(config.Engine.Path, baseDirectory));
+
+        var initialEngine = resolveEngine();
+        if (!initialEngine.IsValid)
+        {
+            logger.Error(
+                "Движок не найден. Отсутствуют файлы: " + string.Join(", ", initialEngine.MissingFiles) +
+                $". EnginePath: '{config.Engine.Path ?? "не задан"}'.");
+        }
+
         var connectivity = ConnectivityService.CreateDefault();
-        _engineProcess = new EngineProcessManager();
-        var engineProcess = _engineProcess;
-        var autostart = new ScheduledTaskAutostart(Environment.ProcessPath ?? string.Empty);
+        var engineProcess = new EngineProcessManager();
+        _engineProcess = engineProcess;
+
+        var gate = new EngineOperationGate();
+        var tester = new PresetTester(engineProcess, connectivity);
+        var coordinator = new ConnectionCoordinator(new ConnectionCoordinatorDependencies(
+            catalog,
+            configStore,
+            engineProcess,
+            connectivity,
+            connectivity,
+            tester,
+            gate,
+            logger,
+            resolveEngine,
+            ConfirmStopForeign: _ => Task.FromResult(Confirm(
+                "Обход уже запущен другим способом. Остановить его и запустить обход из этого приложения?")),
+            Policy: new AutoSelectPolicy
+            {
+                StartupDelay = TimeSpan.FromSeconds(1.5),
+                CheckTimeout = TimeSpan.FromSeconds(4),
+                VerifyDelay = TimeSpan.FromMilliseconds(1500),
+                MaxStartAttempts = 3,
+                HealthFailures = config.Connection.HealthCheck.FailuresBeforeRetest,
+                HealthCooldown = TimeSpan.FromSeconds(config.Connection.HealthCheck.RetestCooldownSeconds),
+            }));
+        _coordinator = coordinator;
+
         var dispatcher = new WpfDispatcher();
+        var autostart = new ScheduledTaskAutostart(Environment.ProcessPath ?? string.Empty);
+        var discordFix = DiscordFixService.CreateDefault(logger);
 
-        // Глобальные обработчики необработанных исключений: вместо молчаливого вылета
-        // показываем окно с текстом ошибки и пишем в лог.
-        DispatcherUnhandledException += (s, args) =>
-        {
-            args.Handled = true;
-            if (_isHandlingException)
-                return;
-            _isHandlingException = true;
-            try
-            {
-                var ex = args.Exception;
-                logger.Error($"Необработанное исключение WPF: {ex}", ex);
-                var root = ex.GetBaseException();
-                var detail = ReferenceEquals(root, ex) ? ex.Message : $"{ex.Message}\n\nПричина: {root.Message}";
-                MessageBox.Show($"ZPRT NEXT GEN stopped working:\n{ex.GetType().Name}: {detail}\n\nПодробности в журнале:\n{Path.Combine(appData, "ZPRT_NEXT_GEN", "logs")}", "ZPRT NEXT GEN — ошибка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                _isHandlingException = false;
-            }
-        };
-        AppDomain.CurrentDomain.UnhandledException += (s, args) =>
-        {
-            if (_isHandlingException)
-                return;
-            _isHandlingException = true;
-            try
-            {
-                var ex = (Exception)args.ExceptionObject;
-                logger.Error($"Необработанное исключение домена: {ex}", ex);
-                try { MessageBox.Show($"ZPRT NEXT GEN crashed:\n{ex.GetType().Name}: {ex.Message}", "ZPRT NEXT GEN — ошибка", MessageBoxButton.OK, MessageBoxImage.Error); } catch { }
-            }
-            finally
-            {
-                _isHandlingException = false;
-            }
-        };
-        TaskScheduler.UnobservedTaskException += (s, args) =>
-        {
-            args.SetObserved();
-            logger.Error($"Необработанное исключение задачи: {args.Exception}", args.Exception);
-        };
+        var dashboard = new DashboardViewModel(new DashboardDependencies(
+            coordinator,
+            configStore,
+            discordFix,
+            logger,
+            dispatcher,
+            logsDirectory));
+        _dashboard = dashboard;
 
-        // 7. Модель представления, главное окно, трей.
-        var dependencies = new MainViewModelDependencies(
-            Catalog: catalog,
-            Settings: settingsStore,
-            Engine: engine,
-            EngineProcess: engineProcess,
-            Connectivity: connectivity,
-            Autostart: autostart,
-            Logger: logger,
-            Dispatcher: dispatcher,
-            Confirm: ConfirmEngineAction,
-            LocateEngine: path => EngineLocator.Locate(path, AppContext.BaseDirectory));
-
-        var maintenance = new MaintenanceDependencies(
+        var settings = new SettingsViewModel(new SettingsDependencies(
+            configStore,
+            coordinator,
+            baseCatalog,
+            engineProcess,
+            connectivity,
+            autostart,
+            discordFix,
+            tester,
             GitHubReleaseClient.CreateDefault(),
             new EngineUpdater(HttpFileDownloader.CreateDefault()),
             new AppUpdater(HttpFileDownloader.CreateDefault()),
-            new PresetTester(engineProcess, connectivity),
-            typeof(App).Assembly.GetName().Version?.ToString() ?? "0.1.0",
-            catalogPath);
+            logger,
+            dispatcher,
+            version,
+            presetsPath,
+            isPortable,
+            path => EngineLocator.Locate(path, baseDirectory),
+            coordinator.UpdateCatalog,
+            Confirm,
+            logsDirectory));
+        _settings = settings;
+        settings.SetResolvedEngineRoot(initialEngine.EngineRoot);
 
-        _vm = new MainViewModel(dependencies, maintenance);
-        _vm.RestartRequested += (_, _) => Application.Current.Shutdown();
-        _mainWindow = new MainWindow(_vm);
+        // Главное окно.
+        var mainWindow = new MainWindow(dashboard);
+        _mainWindow = mainWindow;
+        MainWindow = mainWindow;
 
         Icon? icon = null;
         try
         {
-            var iconPath = Path.Combine(AppContext.BaseDirectory, "assets", "icon.ico");
-            icon = new Icon(iconPath);
+            var iconPath = Path.Combine(baseDirectory, "assets", "icon.ico");
+            if (File.Exists(iconPath))
+                icon = new Icon(iconPath);
         }
         catch (Exception ex)
         {
-            logger.Error($"Не удалось загрузить иконку приложения: {ex.Message}", ex);
+            logger.Error("Иконка приложения: " + ex.Message, ex);
         }
 
         _tray = new TrayService(
             icon,
-            toggle: () =>
-            {
-                try
-                {
-                    _ = _vm!.ToggleAsync();
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex.Message, ex);
-                }
-            },
             show: ShowMainWindow,
-            exit: () => _mainWindow!.RequestExit());
+            toggle: () => dashboard.ToggleCommand.Execute(null),
+            fixDiscord: () => dashboard.FixDiscordCommand.Execute(null),
+            exit: ExitApplication);
 
-        // Показываем окно сразу. Повторная проверка на ApplicationIdle страхует от случаев,
-        // когда окно создано, но осталось невидимым (первый запуск, UAC/активация).
-        ShowMainWindow();
-        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+        dashboard.SettingsRequested += (_, _) => ShowSettingsWindow();
+        dashboard.NotificationRequested += (_, text) =>
+            _tray?.ShowBalloon("ZPRT NEXT GEN", text);
+        settings.RestartRequested += (_, _) => Shutdown();
+
+        coordinator.StateChanged += (_, snapshot) =>
+            dispatcher.Post(() => UpdateTrayState(snapshot));
+        dashboard.PropertyChanged += (_, args) =>
         {
-            if (_mainWindow is { IsVisible: false })
-                ShowMainWindow();
-        }));
+            if (args.PropertyName is nameof(DashboardViewModel.IsFixingDiscord))
+                UpdateTrayState(coordinator.Snapshot);
+        };
+
+        UpdateTrayState(coordinator.Snapshot);
+
+        if (!options.StartInTray)
+            ShowMainWindow();
+        else
+            _tray.ShowBalloon("ZPRT NEXT GEN", "Приложение запущено в трее.");
+
+        _ = InitializeAsync(options, config, logger);
     }
 
-    /// <summary>Показать главное окно на переднем плане (старт, трей, повторный запуск).</summary>
+    private async Task InitializeAsync(AppStartupOptions options, AppConfig config, IAppLogger logger)
+    {
+        if (_coordinator is null || _dashboard is null)
+            return;
+
+        try
+        {
+            await _coordinator.InitializeAsync(CancellationToken.None);
+            _dashboard.Refresh();
+            _settings?.Reload();
+
+            var health = config.Connection.HealthCheck;
+            if (health.Enabled)
+            {
+                _healthMonitor = new HealthMonitor(
+                    TimeSpan.FromSeconds(Math.Clamp(health.IntervalSeconds, 10, 3600)),
+                    ct => _coordinator.CheckHealthAsync(ct),
+                    logger);
+                _healthMonitor.Start();
+            }
+
+            if (!options.AutoConnect)
+                return;
+
+            var usesSavedProfile = config.Connection.Mode == ConnectionMode.Manual
+                || config.Connection.AutoProfile is not null;
+
+            if (!usesSavedProfile)
+            {
+                _tray?.ShowBalloon("ZPRT NEXT GEN",
+                    "Нет сохранённого профиля. Открой приложение и нажми «Включить».");
+                return;
+            }
+
+            logger.Info("Автозапуск: поднимаем сохранённый обход.");
+            await _coordinator.ConnectAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.Error("Инициализация подключения: " + ex.Message, ex);
+        }
+    }
+
+    /// <summary>Показать главное окно на переднем плане.</summary>
     private void ShowMainWindow()
     {
         if (_mainWindow is null)
@@ -248,12 +310,146 @@ public partial class App : Application
 
         _mainWindow.Activate();
 
-        // Кратковременный Topmost возвращает окно на передний план,
-        // даже если фокус удерживает другой процесс.
         var topmost = _mainWindow.Topmost;
         _mainWindow.Topmost = true;
         _mainWindow.Topmost = topmost;
         _mainWindow.Focus();
+    }
+
+    private void ShowSettingsWindow()
+    {
+        if (_settings is null)
+            return;
+
+        if (_settingsWindow is { IsLoaded: true })
+        {
+            _settingsWindow.Show();
+            _settingsWindow.Activate();
+            return;
+        }
+
+        var window = new SettingsWindow(_settings);
+        if (_mainWindow is { IsVisible: true })
+            window.Owner = _mainWindow;
+
+        window.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow = window;
+        window.Show();
+        window.Activate();
+    }
+
+    private void UpdateTrayState(ConnectionSnapshot snapshot)
+    {
+        if (_tray is null)
+            return;
+
+        var tooltip = snapshot.State switch
+        {
+            ConnectionState.Connected => string.IsNullOrWhiteSpace(snapshot.PresetName)
+                ? "ZPRT NEXT GEN — обход включён"
+                : $"ZPRT NEXT GEN — обход включён ({snapshot.PresetName})",
+            ConnectionState.Selecting => "ZPRT NEXT GEN — подбираем обход",
+            ConnectionState.Connecting => "ZPRT NEXT GEN — подключаемся",
+            ConnectionState.Stopping => "ZPRT NEXT GEN — выключаем обход",
+            ConnectionState.Error => "ZPRT NEXT GEN — нужна помощь",
+            _ => "ZPRT NEXT GEN — обход выключен",
+        };
+
+        var toggleText = snapshot.State switch
+        {
+            ConnectionState.Connected => "Выключить обход",
+            ConnectionState.Selecting or ConnectionState.Connecting => "Отменить подбор",
+            _ => "Включить обход",
+        };
+
+        _tray.UpdateStatus(tooltip);
+        _tray.UpdateMenu(toggleText, snapshot.IsBusy, _dashboard?.IsFixingDiscord ?? false);
+    }
+
+    private void ExitApplication()
+    {
+        if (_shuttingDown)
+            return;
+
+        _shuttingDown = true;
+        _mainWindow?.RequestExit();
+
+        if (_mainWindow is null)
+            Shutdown();
+    }
+
+    private static PresetCatalog LoadCatalog(string path, IAppLogger logger)
+    {
+        if (!File.Exists(path))
+        {
+            logger.Error("Каталог пресетов не найден: " + path);
+            return new PresetCatalog(0, string.Empty, string.Empty, [], []);
+        }
+
+        try
+        {
+            return PresetCatalogLoader.Load(path);
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Каталог пресетов '{path}' повреждён: {ex.Message}", ex);
+            return new PresetCatalog(0, string.Empty, string.Empty, [], []);
+        }
+    }
+
+    private void RunPortableCheck(byte[]? embeddedEngine, string version, IAppLogger logger)
+    {
+        if (embeddedEngine is not { Length: > 0 })
+        {
+            MessageBox.Show(
+                "В этой сборке нет встроенного движка (Standard). Portable-проверка не требуется.",
+                "ZPRT NEXT GEN",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            Shutdown(1);
+            return;
+        }
+
+        var cacheRoot = Path.Combine(
+            Path.GetTempPath(), "ZprtNextGen-portable-check-" + Guid.NewGuid().ToString("N")[..8]);
+
+        var ok = false;
+        string message;
+
+        try
+        {
+            var installer = new PortableEngineInstaller(embeddedEngine, version, cacheRoot, logger);
+            var result = installer.InstallAsync(CancellationToken.None).GetAwaiter().GetResult();
+            var winws = result is null ? null : Path.Combine(result.EngineRoot, "bin", "winws.exe");
+            ok = winws is not null && File.Exists(winws)
+                && File.Exists(Path.Combine(result!.EngineRoot, "presets", "presets.json"));
+
+            message = ok
+                ? "Portable-движок распакован и проверен: " + result!.EngineRoot
+                : "Portable-движок распакован не полностью.";
+        }
+        catch (Exception ex)
+        {
+            logger.Error("Portable-проверка: " + ex.Message, ex);
+            message = "Portable-проверка не удалась: " + ex.Message;
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(cacheRoot))
+                    Directory.Delete(cacheRoot, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Очистка временной папки проверки: " + ex.Message, ex);
+            }
+        }
+
+        MessageBox.Show(message, "ZPRT NEXT GEN — portable",
+            MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Error);
+
+        Shutdown(ok ? 0 : 1);
     }
 
     /// <summary>Слушать запросы второго экземпляра «показать окно».</summary>
@@ -265,7 +461,6 @@ public partial class App : Application
         }
         catch (Exception)
         {
-            // Сигнал — вспомогательный механизм; без него приложение работает как раньше.
             return;
         }
 
@@ -287,12 +482,11 @@ public partial class App : Application
         })
         {
             IsBackground = true,
-            Name = "ZPRT_NEXT_GEN: показать окно"
+            Name = "ZPRT_NEXT_GEN: показать окно",
         };
         _showSignalThread.Start();
     }
 
-    /// <summary>Второй экземпляр: попросить работающее приложение показать окно.</summary>
     private static void SignalExistingInstance()
     {
         try
@@ -302,33 +496,83 @@ public partial class App : Application
         }
         catch (Exception ex) when (ex is WaitHandleCannotBeOpenedException or UnauthorizedAccessException or IOException)
         {
-            // Первый экземпляр ещё не успел создать сигнал — сообщаем обычным способом.
             MessageBox.Show("ZPRT NEXT GEN уже запущен", "ZPRT NEXT GEN",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
-    private static bool ConfirmEngineAction(string message)
+    private static bool Confirm(string message)
     {
         var result = MessageBox.Show(message, "ZPRT NEXT GEN",
             MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         return result == MessageBoxResult.Yes;
     }
 
-    protected override void OnExit(ExitEventArgs e)
+    private void InstallGlobalExceptionHandlers(IAppLogger logger, string logsDirectory)
     {
-        if (_vm is not null && !_vmShutdown)
+        DispatcherUnhandledException += (_, args) =>
         {
-            _vmShutdown = true;
+            args.Handled = true;
+            if (_isHandlingException)
+                return;
+
+            _isHandlingException = true;
             try
             {
-                // Даём остановке движка завершиться, но не блокируем выход дольше нескольких секунд:
-                // даже если не успели, Dispose ниже завершит принадлежащий нам процесс.
-                _ = Task.Run(() => _vm.ShutdownAsync(_vm.IsRunning)).Wait(TimeSpan.FromSeconds(3));
+                var ex = args.Exception;
+                logger.Error("Необработанное исключение WPF: " + ex, ex);
+                var root = ex.GetBaseException();
+                var detail = ReferenceEquals(root, ex) ? ex.Message : $"{ex.Message}\n\nПричина: {root.Message}";
+                MessageBox.Show(
+                    $"ZPRT NEXT GEN столкнулся с ошибкой:\n{ex.GetType().Name}: {detail}" +
+                    $"\n\nПодробности в журнале:\n{logsDirectory}",
+                    "ZPRT NEXT GEN — ошибка",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
-            catch
+            finally
             {
-                // Завершение при выходе: ошибки уже зарегистрированы логгером.
+                _isHandlingException = false;
+            }
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex)
+                logger.Error("Необработанное исключение домена: " + ex, ex);
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            args.SetObserved();
+            logger.Error("Необработанное исключение задачи: " + args.Exception, args.Exception);
+        };
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        if (_coordinator is not null)
+        {
+            try
+            {
+                Task.Run(() => _coordinator.DisconnectAsync(CancellationToken.None))
+                    .Wait(TimeSpan.FromSeconds(4));
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error("Остановка при выходе: " + ex.Message, ex);
+            }
+        }
+
+        if (_healthMonitor is not null)
+        {
+            try
+            {
+                _healthMonitor.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+            }
+            catch (Exception)
+            {
+                // Монитор уже мог быть остановлен.
             }
         }
 

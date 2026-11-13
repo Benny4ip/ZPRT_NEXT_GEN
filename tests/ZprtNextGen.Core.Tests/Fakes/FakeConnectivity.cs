@@ -8,7 +8,16 @@ namespace ZprtNextGen.Core.Tests.Fakes;
 public sealed class FakeConnectivity : IConnectivityService
 {
     public ConnectivityReport Report { get; set; } = new(
-        new[] { new ConnectivityResult(new ConnectivityTarget("p", "Primary", "https://example.com", true), true, 10, null) });
+        new[]
+        {
+            new ConnectivityResult(
+                new ConnectivityTarget("youtube", "YouTube", "https://www.youtube.com", true, ServiceKind.YouTube),
+                true, 10, null),
+            new ConnectivityResult(
+                new ConnectivityTarget("discord", "Discord", "https://discord.com", true, ServiceKind.Discord),
+                true, 12, null),
+        });
+
     public int CheckCalls;
 
     public Task<ConnectivityReport> CheckAsync(CancellationToken ct, string? targetId = null)

@@ -25,3 +25,6 @@ engine/
 # OS files
 Thumbs.db
 desktop.ini
+
+artifacts/
+

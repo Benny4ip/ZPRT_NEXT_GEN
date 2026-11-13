@@ -99,7 +99,7 @@ public class PresetTesterTests
     }
 
     [Fact]
-    public async Task TestAllAsync_UsesMeasuredLatencyFromConnectivityReport()
+    public async Task TestAllAsync_UsesWorstLatencyOfBothServices()
     {
         var engine = new FakeEngineProcess();
         var connectivity = new FakeConnectivity
@@ -107,9 +107,11 @@ public class PresetTesterTests
             Report = new ConnectivityReport(
             [
                 new ConnectivityResult(
-                    new ConnectivityTarget("discord", "Discord", "https://discord.com", true), true, 37, null),
+                    new ConnectivityTarget("discord", "Discord", "https://discord.com", true, ServiceKind.Discord),
+                    true, 37, null),
                 new ConnectivityResult(
-                    new ConnectivityTarget("youtube", "YouTube", "https://www.youtube.com", true), true, 84, null),
+                    new ConnectivityTarget("youtube", "YouTube", "https://www.youtube.com", true, ServiceKind.YouTube),
+                    true, 84, null),
             ])
         };
         var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
@@ -119,8 +121,42 @@ public class PresetTesterTests
 
         var result = Assert.Single(results);
         Assert.True(result.Success);
-        Assert.Equal(37, result.ElapsedMs); // лучшая первичная цель, а не длительность паузы
-        Assert.Equal("37 мс", result.LatencyText);
+        Assert.True(result.Qualified);
+        Assert.Equal(84, result.ElapsedMs); // score = max(YouTube, Discord)
+        Assert.Equal(84, result.ScoreMs);
+        Assert.Equal(84, result.YoutubeMs);
+        Assert.Equal(37, result.DiscordMs);
+        Assert.Equal("84 мс", result.LatencyText);
+    }
+
+    [Fact]
+    public async Task TestAllAsync_OnlyOneServiceAvailable_IsNotQualified()
+    {
+        var engine = new FakeEngineProcess();
+        var connectivity = new FakeConnectivity
+        {
+            Report = new ConnectivityReport(
+            [
+                new ConnectivityResult(
+                    new ConnectivityTarget("youtube", "YouTube", "https://www.youtube.com", true, ServiceKind.YouTube),
+                    true, 84, null),
+                new ConnectivityResult(
+                    new ConnectivityTarget("discord", "Discord", "https://discord.com", true, ServiceKind.Discord),
+                    false, 5000, "timeout", TimedOut: true),
+            ])
+        };
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+
+        var results = await sut.TestAllAsync(
+            [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
+
+        var result = Assert.Single(results);
+        Assert.False(result.Success);
+        Assert.False(result.Qualified);
+        Assert.True(result.YoutubeOk);
+        Assert.False(result.DiscordOk);
+        Assert.Null(result.ScoreMs);
+        Assert.Contains("Связь не подтверждена", result.Detail);
     }
 
     [Fact]

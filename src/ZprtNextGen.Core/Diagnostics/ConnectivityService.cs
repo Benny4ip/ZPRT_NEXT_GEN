@@ -4,16 +4,24 @@ using System.Diagnostics;
 using System.Net;
 
 /// <summary>Проверка доступности целей через <see cref="HttpClient"/>.</summary>
-public sealed class ConnectivityService(HttpClient client) : IConnectivityService
+public sealed class ConnectivityService(HttpClient client) : IConnectivityService, IInternetProbe
 {
-    /// <summary>Цели по умолчанию: первичные — Discord, Discord Gateway, YouTube;
-    /// второстепенная — YouTube CDN.</summary>
+    /// <summary>Цели по умолчанию: по две первичные на каждый сервис и по одной вторичной.</summary>
     public static IReadOnlyList<ConnectivityTarget> DefaultTargets { get; } = new ConnectivityTarget[]
     {
-        new("discord", "Discord", "https://discord.com", true),
-        new("discord-gateway", "Discord Gateway", "https://gateway.discord.gg", true),
-        new("youtube", "YouTube", "https://www.youtube.com", true),
-        new("youtube-cdn", "YouTube CDN", "https://redirector.googlevideo.com", false)
+        new("youtube", "YouTube", "https://www.youtube.com/generate_204", true, ServiceKind.YouTube),
+        new("youtube-cdn", "YouTube CDN", "https://redirector.googlevideo.com/generate_204", true, ServiceKind.YouTube),
+        new("youtube-img", "YouTube картинки", "https://i.ytimg.com/generate_204", false, ServiceKind.YouTube),
+        new("discord-api", "Discord API", "https://discord.com/api/v10/gateway", true, ServiceKind.Discord),
+        new("discord-gateway", "Discord Gateway", "https://gateway.discord.gg/?v=10&encoding=json", true, ServiceKind.Discord),
+        new("discord-cdn", "Discord CDN", "https://cdn.discordapp.com/generate_204", false, ServiceKind.Discord),
+    };
+
+    /// <summary>Нейтральные узлы для проверки наличия интернета (не YouTube/Discord).</summary>
+    public static IReadOnlyList<ConnectivityTarget> InternetProbeTargets { get; } = new ConnectivityTarget[]
+    {
+        new("internet-msft", "Microsoft Connect Test", "https://www.msftconnecttest.com/connecttest.txt", true),
+        new("internet-apple", "Apple Captive Portal", "https://captive.apple.com/hotspot-detect.html", true),
     };
 
     private readonly HttpClient _client = client;
@@ -38,6 +46,17 @@ public sealed class ConnectivityService(HttpClient client) : IConnectivityServic
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         return new ConnectivityReport(results);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> CheckInternetAsync(CancellationToken ct)
+    {
+        var tasks = InternetProbeTargets
+            .Select(target => CheckTargetAsync(target, ct))
+            .ToList();
+
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results.Any(result => result.Success);
     }
 
     private async Task<ConnectivityResult> CheckTargetAsync(ConnectivityTarget target, CancellationToken ct)

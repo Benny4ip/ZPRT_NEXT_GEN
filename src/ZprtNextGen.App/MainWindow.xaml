@@ -5,160 +5,179 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:clr="clr-namespace:ZprtNextGen.App.Controls"
         xmlns:conv="clr-namespace:ZprtNextGen.App.Converters"
-        xmlns:presets="clr-namespace:ZprtNextGen.Core.Presets;assembly=ZprtNextGen.Core"
         mc:Ignorable="d"
         Title="ZPRT NEXT GEN"
-        Width="1100" Height="760"
-        MinWidth="900" MinHeight="620"
+        Width="760" Height="720"
+        MinWidth="640" MinHeight="640"
         WindowStartupLocation="CenterScreen"
         Style="{StaticResource DarkWindow}"
         Loaded="OnLoaded"
         Closing="OnClosing">
-    <Window.Resources>
-        <conv:BoolToBrushConverter x:Key="BoolToBrushConverter" />
-        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
-    </Window.Resources>
+  <Window.Resources>
+    <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
 
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <!-- Донат: outline-кнопка с золотым акцентом. -->
+    <Style x:Key="DonateButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+      <Setter Property="Foreground" Value="#F5C75C" />
+      <Setter Property="BorderBrush" Value="#6B5320" />
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
 
-        <!-- Герой: визуализация состояния + управление обходом. -->
-        <Grid x:Name="HeroPanel" Grid.Row="0" Margin="0,0,0,20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="280" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+    <!-- Кнопка-действие под орбом. -->
+    <Style x:Key="OrbActionButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+      <Setter Property="MinWidth" Value="150" />
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="Margin" Value="6,0" />
+    </Style>
+  </Window.Resources>
 
-            <clr:MeditationView Grid.Column="0" Width="280" Height="280"
-                                State="{Binding AnimationState}" ReduceMotion="{Binding ReduceMotion}" />
+  <Grid Margin="24,18,24,18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
 
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="24,0,0,0">
-                <TextBlock Text="ZPRT NEXT GEN" FontSize="30" FontWeight="Bold" Foreground="{StaticResource Brush.Text}" />
-                <ContentControl Style="{StaticResource StatusPill}" Content="{Binding StatusText}" Margin="0,10,0,0" />
-                <Button x:Name="ToggleButton"
-                        Command="{Binding ToggleCommand}"
-                        IsEnabled="{Binding CanStart}"
-                        MinWidth="240" Height="44"
-                        HorizontalAlignment="Left"
-                        Margin="0,16,0,0">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-                            <Setter Property="Content" Value="Включить обход" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                    <Setter Property="Content" Value="Выключить обход" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-                <TextBlock Text="Discord · YouTube · без лишних окон"
-                           Foreground="{StaticResource Brush.TextMuted}" FontSize="12" Margin="0,16,0,0" />
-            </StackPanel>
+    <!-- Верх: название слева, донат справа. -->
+    <Grid Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
 
-        </Grid>
+      <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+        <Ellipse Width="10" Height="10" Fill="{StaticResource Brush.Accent}" Margin="0,0,10,0" />
+        <TextBlock Text="ZPRT NEXT GEN" FontSize="15" FontWeight="SemiBold"
+                   Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" />
+      </StackPanel>
 
-        <!-- Пресеты: сгруппированный селектор + кнопка настроек рядом. -->
-        <Grid Grid.Row="1" Margin="0,0,0,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <clr:PresetSelector Grid.Column="0" MaxWidth="400"
-                                Groups="{Binding Groups}"
-                                SelectedPreset="{Binding SelectedPreset, Mode=TwoWay}"
-                                SelectCommand="{Binding SelectPresetCommand}" />
-            <Button Grid.Column="1" Content="&#x2699;"
-                    FontFamily="Segoe UI Symbol" FontSize="28"
-                    Style="{StaticResource IconButton}"
-                    Click="OnSettings"
-                    VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Настройки" />
-        </Grid>
-
-        <!-- Связь и лог. -->
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Style="{StaticResource Card}" x:Name="ConnectivityPanel" Grid.Column="0">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Связь с сервисами" FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Text}" Margin="0,0,0,12" />
-                    <ScrollViewer Style="{StaticResource DarkScrollViewer}"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{Binding ConnectivityRows}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Padding="8,7" CornerRadius="8" SnapsToDevicePixels="True"
-                                            AutomationProperties.Name="{Binding Name}">
-                                        <Grid Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <Ellipse Grid.Column="0" Width="10" Height="10"
-                                                     Fill="{Binding Success, Converter={StaticResource BoolToBrushConverter}}"
-                                                     Margin="0,0,10,0" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                       Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding LatencyText}"
-                                                       Foreground="{StaticResource Brush.TextMuted}" FontSize="12"
-                                                       Margin="8,0,0,0" VerticalAlignment="Center" />
-                                            <Button Grid.Column="3" Content="Проверить связь"
-                                                    Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding TargetId}"
-                                                    AutomationProperties.Name="{Binding Name, StringFormat='Проверить связь: {0}'}"
-                                                    AutomationProperties.HelpText="{Binding Error}"
-                                                    Style="{StaticResource SecondaryButton}" FontSize="11" Padding="10,4"
-                                                    Margin="12,0,0,0" MinWidth="110" VerticalAlignment="Center">
-                                                <Button.ToolTip>
-                                                    <ToolTip Content="{Binding Error}"
-                                                             Visibility="{Binding Error, Converter={StaticResource NullToVisibilityConverter}}" />
-                                                </Button.ToolTip>
-                                            </Button>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
-
-            <Border Style="{StaticResource Card}" x:Name="LogPanel" Grid.Column="1" Margin="12,0,0,0">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Лог" FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Text}" Margin="0,0,0,8" />
-                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                                HorizontalAlignment="Right" Margin="0,12,0,0">
-                        <Button Content="Копировать лог" Click="OnCopyLog"
-                                AutomationProperties.Name="Копировать лог"
-                                ToolTip="Скопировать все строки лога в буфер обмена"
-                                Style="{StaticResource SecondaryButton}"
-                                MinWidth="110" Padding="10,4" Margin="0,0,8,0" />
-                        <Button Content="Открыть папку логов"
-                                Command="{Binding OpenLogsCommand}"
-                                AutomationProperties.Name="Открыть папку логов"
-                                Style="{StaticResource SecondaryButton}"
-                                MinWidth="110" Padding="10,4" />
-                    </StackPanel>
-                    <ListBox x:Name="LogList" ItemsSource="{Binding LogLines}"
-                             AutomationProperties.Name="Лог"
-                             FontFamily="Cascadia Mono, Consolas" FontSize="12"
-                             Style="{StaticResource LogListBox}" />
-                </DockPanel>
-            </Border>
-        </Grid>
-
+      <Button Grid.Column="1"
+              Style="{StaticResource DonateButton}"
+              Command="{Binding DonateCommand}"
+              ToolTip="Поддержи проект денежкой"
+              AutomationProperties.Name="Поддержи проект денежкой">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="M 8,14 C 2,9 0,6 0,4 A 4,4 0 0 1 8,2 A 4,4 0 0 1 16,4 C 16,6 14,9 8,14 Z"
+                Fill="#F5C75C" Width="16" Height="14" Stretch="Uniform"
+                Margin="0,0,8,0" VerticalAlignment="Center" />
+          <TextBlock Text="Поддержи проект денежкой" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
     </Grid>
+
+    <!-- Центр: плашка подбора, орб, статусы и действия. -->
+    <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+
+      <!-- Плашка первого подбора / восстановления профиля. -->
+      <Border x:Name="SelectionBanner"
+              Background="#1A1A1A" BorderBrush="#3A2A12" BorderThickness="1"
+              CornerRadius="12" Padding="18,12" Margin="0,0,0,14" MaxWidth="520"
+              Visibility="{Binding IsBannerVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+        <StackPanel>
+          <TextBlock Text="{Binding BannerTitle}" FontWeight="SemiBold" FontSize="14"
+                     Foreground="#F5C75C" TextAlignment="Center" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding BannerText}" FontSize="12" Foreground="{StaticResource Brush.TextMuted}"
+                     TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+      </Border>
+
+      <clr:ConnectionOrb
+          x:Name="Orb"
+          HorizontalAlignment="Center"
+          State="{Binding State}"
+          MainText="{Binding OrbTitle}"
+          HintText="{Binding OrbHint}"
+          AutomationName="{Binding OrbAutomationName}"
+          Progress="{Binding Progress}"
+          ReduceMotion="{Binding ReduceMotion}"
+          Command="{Binding ToggleCommand}" />
+
+      <TextBlock x:Name="StatusTitle" Text="{Binding StatusTitle}"
+                 FontSize="22" FontWeight="SemiBold"
+                 Foreground="{StaticResource Brush.Text}"
+                 TextAlignment="Center" TextWrapping="Wrap"
+                 HorizontalAlignment="Center" Margin="0,18,0,0" MaxWidth="560" />
+
+      <TextBlock Text="{Binding ProfileText}" FontSize="13"
+                 Foreground="{StaticResource Brush.TextMuted}"
+                 TextAlignment="Center" HorizontalAlignment="Center" Margin="0,6,0,0">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Visibility" Value="Visible" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding ProfileText}" Value="">
+                <Setter Property="Visibility" Value="Collapsed" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+
+      <TextBlock Text="{Binding ProgressText}" FontSize="13"
+                 Foreground="{StaticResource Brush.TextMuted}"
+                 TextAlignment="Center" HorizontalAlignment="Center" Margin="0,6,0,0" />
+
+      <!-- Действия во время подбора / после ошибки. -->
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+        <Button Content="Остановить и применить лучший"
+                Style="{StaticResource PrimaryButton}"
+                Command="{Binding StopAndApplyBestCommand}"
+                Padding="16,8" Margin="0"
+                Visibility="{Binding CanStopAndApply, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+        <Button Content="Отмена"
+                Style="{StaticResource OrbActionButton}"
+                Command="{Binding CancelSelectionCommand}"
+                Visibility="{Binding CanCancelSelection, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+        <Button Content="Попробовать снова"
+                Style="{StaticResource OrbActionButton}"
+                Command="{Binding RetryCommand}"
+                Visibility="{Binding ShowRetry, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+        <Button Content="Открыть настройки"
+                Style="{StaticResource OrbActionButton}"
+                Command="{Binding OpenSettingsCommand}"
+                Visibility="{Binding ShowEngineSettingsHint, Converter={StaticResource BoolToVisibilityConverter}}" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Низ: Fix Discord слева, настройки справа. -->
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <Button Grid.Column="0"
+              Style="{StaticResource SecondaryButton}"
+              Command="{Binding FixDiscordCommand}"
+              Padding="14,8"
+              ToolTip="Починить вечную загрузку Discord (сброс кэша без выхода из аккаунта)"
+              AutomationProperties.Name="Fix Discord">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="M 2,14 L 10,6 M 6,2 L 14,10 M 3,3 A 5,5 0 0 1 11,8 L 7,12 A 5,5 0 0 1 3,3 Z"
+                Stroke="{StaticResource Brush.TextMuted}" StrokeThickness="1.6"
+                Width="15" Height="15" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding FixDiscordText}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+
+      <Button Grid.Column="2"
+              Style="{StaticResource IconButton}"
+              Command="{Binding OpenSettingsCommand}"
+              ToolTip="Настройки"
+              AutomationProperties.Name="Настройки">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="&#x2699;" FontFamily="Segoe UI Symbol" FontSize="30"
+                     VerticalAlignment="Center" />
+          <TextBlock Text="Настройки" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"
+                     Foreground="{StaticResource Brush.TextMuted}" />
+        </StackPanel>
+      </Button>
+    </Grid>
+  </Grid>
 </Window>

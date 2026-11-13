@@ -10,6 +10,26 @@ namespace ZprtNextGen.Core.Presets;
 public record PresetTestResult(
     string PresetId, string Name, bool Success, long? ElapsedMs, string? Detail, bool TimedOut = false)
 {
+    /// <summary>Доступен YouTube.</summary>
+    public bool YoutubeOk { get; init; }
+
+    /// <summary>Доступен Discord.</summary>
+    public bool DiscordOk { get; init; }
+
+    /// <summary>Задержка YouTube (минимум по первичным целям).</summary>
+    public long? YoutubeMs { get; init; }
+
+    /// <summary>Задержка Discord (минимум по первичным целям).</summary>
+    public long? DiscordMs { get; init; }
+
+    /// <summary>Рабочий обход: доступны оба сервиса.</summary>
+    public bool Qualified => YoutubeOk && DiscordOk;
+
+    /// <summary>Оценка обхода: худшая из задержек.</summary>
+    public long? ScoreMs => YoutubeMs is { } youtube && DiscordMs is { } discord
+        ? Math.Max(youtube, discord)
+        : null;
+
     /// <summary>Краткий текст результата для отображения в UI.</summary>
     public string StatusText => Success ? "Успех" : $"Ошибка: {Detail ?? "неизвестная"}";
 
@@ -87,21 +107,30 @@ public sealed class PresetTester : IPresetTester
                     var report = await _connectivity.CheckAsync(ct);
                     ct.ThrowIfCancellationRequested();
 
-                    if (report.IsConnected)
+                    var qualified = report.BothOk;
+                    if (qualified)
                     {
-                        // Задержка — реальное время ответа лучшей первичной цели, а не длительность паузы/таймаута.
-                        var latency = report.Results
-                            .Where(r => r.Success && r.Target.IsPrimary)
-                            .Select(r => r.ElapsedMs)
-                            .DefaultIfEmpty(0)
-                            .Min();
-                        result = new PresetTestResult(preset.Id, preset.Name, true, latency, null);
+                        // Оценка — худшая из задержек двух сервисов, а не длительность паузы.
+                        result = new PresetTestResult(
+                            preset.Id, preset.Name, true, report.ScoreMs, null)
+                        {
+                            YoutubeOk = report.YouTubeOk,
+                            DiscordOk = report.DiscordOk,
+                            YoutubeMs = report.YouTubeLatencyMs,
+                            DiscordMs = report.DiscordLatencyMs,
+                        };
                     }
                     else
                     {
                         result = new PresetTestResult(
                             preset.Id, preset.Name, false, null, "Связь не подтверждена",
-                            report.Results.Any(r => r.TimedOut));
+                            report.Results.Any(r => r.TimedOut))
+                        {
+                            YoutubeOk = report.YouTubeOk,
+                            DiscordOk = report.DiscordOk,
+                            YoutubeMs = report.YouTubeLatencyMs,
+                            DiscordMs = report.DiscordLatencyMs,
+                        };
                     }
                 }
             }

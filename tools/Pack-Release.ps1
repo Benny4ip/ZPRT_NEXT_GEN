@@ -24,7 +24,7 @@ param(
 
     [string] $OutputZip = "publish\ZPRT_NEXT_GEN-win-x64.zip",
 
-    [string] $Version = "0.1.0"
+    [string] $Version = "1.0.0-beta.1"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -73,7 +73,7 @@ function Copy-Contents([string] $src, [string] $dest)
 $engineDir = Resolve-RepoPath $EngineDir
 $publishDir = Resolve-RepoPath $PublishDir
 $outputZip = Resolve-RepoPath $OutputZip
-$staging = Join-Path (Split-Path -Parent $publishDir) 'staging'
+$staging = Join-Path ([System.IO.Path]::GetTempPath()) ('zprt_staging_' + [Guid]::NewGuid().ToString('N'))
 
 $engineExe = Join-Path $engineDir 'bin\winws.exe'
 Require-File $engineExe 'bin\winws.exe в -EngineDir'
@@ -177,3 +177,4 @@ Compress-Archive -Path $items.FullName -DestinationPath $outputZip -Force
 Write-Host "Упаковано: $outputZip"
 Write-Host "Версия:    $Version"
 Write-Host "Движок:    $engineDir"
+

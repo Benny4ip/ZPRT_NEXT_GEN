@@ -2,14 +2,13 @@
 
 using System;
 using System.Drawing;
-using System.Threading.Tasks;
 using Forms = System.Windows.Forms;
 
 namespace ZprtNextGen.App.Services;
 
 /// <summary>
-/// Трей-иконка приложения: текст на русском, меню «Включить/Выключить», «Открыть», «Выход»,
-/// двойной клик восстанавливает окно.
+/// Трей-иконка: «Развернуть», «Включить/Выключить обход» или «Отменить подбор»,
+/// «Fix Discord» и «Выход». Двойной и одиночный левый клик разворачивают окно.
 /// </summary>
 public sealed class TrayService : IDisposable
 {
@@ -22,31 +21,34 @@ public sealed class TrayService : IDisposable
     private readonly Action _toggle;
     private readonly Action _show;
     private readonly Action _exit;
+    private readonly Action _fixDiscord;
+    private readonly Forms.ToolStripMenuItem _toggleItem;
+    private readonly Forms.ToolStripMenuItem _fixItem;
 
     /// <summary>Создать трей-иконку и действия меню.</summary>
-    /// <param name="icon">Иконка трея. Если <c>null</c> или не загрузилась — используется системная.</param>
-    /// <param name="toggle">Действие «включить/выключить обход» (вызывается без ожидания, с try/catch снаружи).</param>
-    /// <param name="show">Действие «показать главное окно».</param>
-    /// <param name="exit">Действие «инициировать выход из приложения».</param>
-    public TrayService(Icon? icon, Action toggle, Action show, Action exit)
+    public TrayService(Icon? icon, Action show, Action toggle, Action fixDiscord, Action exit)
     {
-        // Без иконки NotifyIcon молча не появляется (а при нулевой иконке может упасть).
-        // Поэтому всегда подставляем системную, а пользовательскую освобождаем только если она наша.
+        _show = show ?? throw new ArgumentNullException(nameof(show));
+        _toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
+        _fixDiscord = fixDiscord ?? throw new ArgumentNullException(nameof(fixDiscord));
+        _exit = exit ?? throw new ArgumentNullException(nameof(exit));
+
         _icon = icon ?? SystemIcons.Application;
         _ownsIcon = icon is not null;
-        _toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
-        _show = show ?? throw new ArgumentNullException(nameof(show));
-        _exit = exit ?? throw new ArgumentNullException(nameof(exit));
 
         var menu = new Forms.ContextMenuStrip();
 
-        var toggleItem = new Forms.ToolStripMenuItem("Включить/Выключить");
-        toggleItem.Click += (_, _) => _toggle();
-        menu.Items.Add(toggleItem);
-
-        var showItem = new Forms.ToolStripMenuItem("Открыть");
+        var showItem = new Forms.ToolStripMenuItem("Развернуть");
         showItem.Click += (_, _) => _show();
         menu.Items.Add(showItem);
+
+        _toggleItem = new Forms.ToolStripMenuItem("Включить обход");
+        _toggleItem.Click += (_, _) => _toggle();
+        menu.Items.Add(_toggleItem);
+
+        _fixItem = new Forms.ToolStripMenuItem("Fix Discord");
+        _fixItem.Click += (_, _) => _fixDiscord();
+        menu.Items.Add(_fixItem);
 
         menu.Items.Add(new Forms.ToolStripSeparator());
 
@@ -59,20 +61,47 @@ public sealed class TrayService : IDisposable
             Icon = _icon,
             Text = AppText,
             ContextMenuStrip = menu,
-            Visible = true
+            Visible = true,
         };
         _notifyIcon.DoubleClick += (_, _) => _show();
+        _notifyIcon.MouseClick += (_, args) =>
+        {
+            if (args.Button == Forms.MouseButtons.Left)
+                _show();
+        };
     }
 
     /// <summary>Обновить подсказку трея (максимум 63 символа).</summary>
-    /// <param name="tooltip">Текст подсказки.</param>
     public void UpdateStatus(string tooltip)
     {
         ArgumentNullException.ThrowIfNull(tooltip);
 
-        _notifyIcon.Text = tooltip.Length > MaxTooltipLength
-            ? tooltip[..MaxTooltipLength]
-            : tooltip;
+        var text = string.IsNullOrWhiteSpace(tooltip) ? AppText : tooltip;
+        _notifyIcon.Text = text.Length > MaxTooltipLength ? text[..MaxTooltipLength] : text;
+    }
+
+    /// <summary>Обновить состояние пунктов меню.</summary>
+    /// <param name="toggleText">«Включить обход», «Выключить обход» или «Отменить подбор».</param>
+    /// <param name="busy">Идёт операция: пункты, меняющие движок, блокируются.</param>
+    /// <param name="fixingDiscord">Идёт Fix Discord.</param>
+    public void UpdateMenu(string toggleText, bool busy, bool fixingDiscord)
+    {
+        _toggleItem.Text = string.IsNullOrWhiteSpace(toggleText) ? "Включить обход" : toggleText;
+        _toggleItem.Enabled = !busy;
+        _fixItem.Enabled = !busy && !fixingDiscord;
+    }
+
+    /// <summary>Показать короткое уведомление рядом с треем.</summary>
+    public void ShowBalloon(string title, string text)
+    {
+        try
+        {
+            _notifyIcon.ShowBalloonTip(4000, title, text, Forms.ToolTipIcon.None);
+        }
+        catch (Exception)
+        {
+            // Уведомление — вспомогательное действие.
+        }
     }
 
     /// <inheritdoc/>

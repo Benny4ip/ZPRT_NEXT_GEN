@@ -9,10 +9,12 @@ public class ConnectivityServiceTests
 {
     private static readonly string[] s_hosts =
     [
+        "www.youtube.com",
+        "redirector.googlevideo.com",
+        "i.ytimg.com",
         "discord.com",
         "gateway.discord.gg",
-        "www.youtube.com",
-        "redirector.googlevideo.com"
+        "cdn.discordapp.com"
     ];
 
     private sealed class FakeHandler : HttpMessageHandler
@@ -70,7 +72,7 @@ public class ConnectivityServiceTests
     }
 
     [Fact]
-    public async Task CheckAsync_AllSuccess_IsConnectedTrue()
+    public async Task CheckAsync_AllSuccess_ReportHasBothServices()
     {
         var handler = new FakeHandler();
         foreach (var host in s_hosts)
@@ -81,43 +83,88 @@ public class ConnectivityServiceTests
         var service = CreateService(handler);
         var report = await service.CheckAsync(CancellationToken.None);
 
-        Assert.True(report.IsConnected);
-        Assert.Equal(4, report.Results.Count);
-        Assert.Equal(new[] { "discord", "discord-gateway", "youtube", "youtube-cdn" },
+        Assert.Equal(6, report.Results.Count);
+        Assert.Equal(
+            new[] { "youtube", "youtube-cdn", "youtube-img", "discord-api", "discord-gateway", "discord-cdn" },
             report.Results.Select(r => r.Target.Id));
-        Assert.All(report.Results, r =>
-        {
-            Assert.True(r.Success);
-            Assert.Null(r.Error);
-            Assert.False(r.TimedOut);
-            Assert.InRange(r.ElapsedMs, 0, long.MaxValue);
-        });
+        Assert.Equal(2, report.Results.Count(r => r.Target.Service == ServiceKind.YouTube && r.Target.IsPrimary));
+        Assert.Equal(2, report.Results.Count(r => r.Target.Service == ServiceKind.Discord && r.Target.IsPrimary));
+        Assert.True(report.YouTubeOk);
+        Assert.True(report.DiscordOk);
+        Assert.True(report.BothOk);
     }
 
     [Fact]
-    public async Task CheckAsync_OnlySecondarySuccess_IsConnectedFalse()
+    public async Task Report_YouTubeOnly_IsNotBothOk()
     {
         var handler = new FakeHandler();
+        handler.Add("www.youtube.com", HttpStatusCode.OK);
+        handler.Add("redirector.googlevideo.com", HttpStatusCode.OK);
+        handler.Add("i.ytimg.com", HttpStatusCode.OK);
         handler.Add("discord.com", HttpStatusCode.ServiceUnavailable);
         handler.Add("gateway.discord.gg", HttpStatusCode.ServiceUnavailable);
-        handler.Add("www.youtube.com", HttpStatusCode.ServiceUnavailable);
-        handler.Add("redirector.googlevideo.com", HttpStatusCode.OK);
+        handler.Add("cdn.discordapp.com", HttpStatusCode.ServiceUnavailable);
 
-        var service = CreateService(handler);
-        var report = await service.CheckAsync(CancellationToken.None);
+        var report = await CreateService(handler).CheckAsync(CancellationToken.None);
 
-        Assert.False(report.IsConnected);
-        Assert.Equal(4, report.Results.Count);
+        Assert.True(report.YouTubeOk);
+        Assert.False(report.DiscordOk);
+        Assert.False(report.BothOk);
+        Assert.NotNull(report.YouTubeLatencyMs);
+        Assert.Null(report.DiscordLatencyMs);
+        Assert.Null(report.ScoreMs);
+    }
 
-        var secondary = Assert.Single(report.Results, r => !r.Target.IsPrimary);
-        Assert.True(secondary.Success);
-        Assert.Null(secondary.Error);
+    [Fact]
+    public async Task Report_LatencyIsMinPerService_ScoreIsMax()
+    {
+        var handler = new FakeHandler();
+        handler.Add("www.youtube.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(120));
+        handler.Add("redirector.googlevideo.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(80));
+        handler.Add("i.ytimg.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(10));
+        handler.Add("discord.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(150));
+        handler.Add("gateway.discord.gg", HttpStatusCode.OK, TimeSpan.FromMilliseconds(95));
+        handler.Add("cdn.discordapp.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(1));
 
-        Assert.All(report.Results.Where(r => r.Target.IsPrimary), r =>
+        var report = await CreateService(handler).CheckAsync(CancellationToken.None);
+
+        Assert.True(report.YouTubeOk);
+        Assert.True(report.DiscordOk);
+        Assert.InRange(report.YouTubeLatencyMs!.Value, 60, 250);
+        Assert.InRange(report.DiscordLatencyMs!.Value, 80, 300);
+        Assert.Equal(
+            Math.Max(report.YouTubeLatencyMs.Value, report.DiscordLatencyMs.Value),
+            report.ScoreMs);
+    }
+
+    [Fact]
+    public async Task CheckAsync_404_IsSuccess()
+    {
+        var handler = new FakeHandler();
+        foreach (var host in s_hosts)
         {
-            Assert.False(r.Success);
-            Assert.Null(r.Error);
-        });
+            handler.Add(host, HttpStatusCode.NotFound);
+        }
+
+        var report = await CreateService(handler).CheckAsync(CancellationToken.None);
+
+        Assert.All(report.Results, r => Assert.True(r.Success));
+        Assert.True(report.BothOk);
+    }
+
+    [Fact]
+    public async Task CheckAsync_500_IsFailure()
+    {
+        var handler = new FakeHandler();
+        foreach (var host in s_hosts)
+        {
+            handler.Add(host, HttpStatusCode.InternalServerError);
+        }
+
+        var report = await CreateService(handler).CheckAsync(CancellationToken.None);
+
+        Assert.All(report.Results, r => Assert.False(r.Success));
+        Assert.False(report.BothOk);
     }
 
     [Fact]
@@ -125,23 +172,18 @@ public class ConnectivityServiceTests
     {
         var handler = new FakeHandler();
         handler.Add("discord.com", HttpStatusCode.OK, throwException: new HttpRequestException("connect failed"));
-        handler.Add("gateway.discord.gg", HttpStatusCode.OK);
-        handler.Add("www.youtube.com", HttpStatusCode.OK);
-        handler.Add("redirector.googlevideo.com", HttpStatusCode.OK);
+        foreach (var host in s_hosts.Where(h => h != "discord.com"))
+        {
+            handler.Add(host, HttpStatusCode.OK);
+        }
 
-        var service = CreateService(handler);
-        var report = await service.CheckAsync(CancellationToken.None);
+        var report = await CreateService(handler).CheckAsync(CancellationToken.None);
 
-        var failed = Assert.Single(report.Results, r => r.Target.Id == "discord");
+        var failed = Assert.Single(report.Results, r => r.Target.Id == "discord-api");
         Assert.False(failed.Success);
         Assert.NotNull(failed.Error);
         Assert.Contains("connect failed", failed.Error, StringComparison.Ordinal);
-
-        Assert.All(report.Results.Where(r => r.Target.Id != "discord"), r =>
-        {
-            Assert.True(r.Success);
-            Assert.Null(r.Error);
-        });
+        Assert.True(report.DiscordOk); // gateway ещё работает
     }
 
     [Fact]
@@ -162,12 +204,12 @@ public class ConnectivityServiceTests
         sw.Stop();
 
         Assert.False(report.IsConnected);
-        Assert.Equal(4, report.Results.Count);
+        Assert.Equal(6, report.Results.Count);
         Assert.All(report.Results, r =>
         {
             Assert.False(r.Success);
             Assert.NotNull(r.Error);
-            Assert.True(r.TimedOut); // это ожидание таймаута, а не измеренная задержка
+            Assert.True(r.TimedOut);
         });
         Assert.InRange(sw.Elapsed.TotalMilliseconds, 0, 5000);
     }
@@ -184,11 +226,10 @@ public class ConnectivityServiceTests
         var service = CreateService(handler);
         var report = await service.CheckAsync(CancellationToken.None, "youtube");
 
-        Assert.Single(report.Results);
-        Assert.Equal("youtube", report.Results[0].Target.Id);
-        Assert.True(report.Results[0].Success);
-        // 其他 цели не проверялись
-        Assert.Equal(1, handler.Starts.Count);
+        var result = Assert.Single(report.Results);
+        Assert.Equal("youtube", result.Target.Id);
+        Assert.True(result.Success);
+        Assert.Single(handler.Starts);
         Assert.Equal("www.youtube.com", handler.Starts[0].Host);
     }
 
@@ -207,10 +248,32 @@ public class ConnectivityServiceTests
         var report = await service.CheckAsync(CancellationToken.None);
         sw.Stop();
 
-        Assert.True(report.IsConnected);
-        Assert.Equal(4, report.Results.Count);
-        Assert.All(report.Results, r => Assert.True(r.Success));
-        Assert.True(handler.Starts.Count == 4);
+        Assert.True(report.BothOk);
+        Assert.Equal(6, handler.Starts.Count);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1), $"expected under 1 s, took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public async Task CheckInternetAsync_AnyNeutralProbeSucceeds_ReturnsTrue()
+    {
+        var handler = new FakeHandler();
+        handler.Add("www.msftconnecttest.com", HttpStatusCode.OK);
+        handler.Add("captive.apple.com", HttpStatusCode.ServiceUnavailable);
+
+        var service = CreateService(handler);
+
+        Assert.True(await service.CheckInternetAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CheckInternetAsync_BothProbesFail_ReturnsFalse()
+    {
+        var handler = new FakeHandler();
+        handler.Add("www.msftconnecttest.com", HttpStatusCode.InternalServerError);
+        handler.Add("captive.apple.com", HttpStatusCode.OK, throwException: new HttpRequestException("offline"));
+
+        var service = CreateService(handler);
+
+        Assert.False(await service.CheckInternetAsync(CancellationToken.None));
     }
 }
