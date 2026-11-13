@@ -24,7 +24,7 @@ using ZprtNextGen.Core.Updates;
 
 namespace ZprtNextGen.App.ViewModels;
 
-/// <summary>Р—Р°РІРёСЃРёРјРѕСЃС‚Рё <see cref="SettingsViewModel"/>.</summary>
+/// <summary>Зависимости <see cref="SettingsViewModel"/>.</summary>
 public sealed record SettingsDependencies(
     IConfigStore ConfigStore,
     ConnectionCoordinator Coordinator,
@@ -48,8 +48,8 @@ public sealed record SettingsDependencies(
     string LogsDirectory);
 
 /// <summary>
-/// РќР°СЃС‚СЂРѕР№РєРё: РєР°Рє РїРѕРґРєР»СЋС‡Р°С‚СЊСЃСЏ, РёРіСЂРѕРІРѕР№ РїСЂРѕС„РёР»СЊ, РјРѕРё РїСЂРµСЃРµС‚С‹, Р·Р°РїСѓСЃРє Рё С‚СЂРµР№,
-/// РґРІРёР¶РѕРє Рё РѕР±РЅРѕРІР»РµРЅРёСЏ, РґРёР°РіРЅРѕСЃС‚РёРєР°. РЎРѕС…СЂР°РЅСЏРµС‚ config.json СЃСЂР°Р·Сѓ РїСЂРё РёР·РјРµРЅРµРЅРёРё.
+/// Настройки: как подключаться, игровой профиль, мои пресеты, запуск и трей,
+/// движок и обновления, диагностика. Сохраняет config.json сразу при изменении.
 /// </summary>
 public sealed class SettingsViewModel : INotifyPropertyChanged
 {
@@ -98,7 +98,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private bool _isAutostartEnabled;
     private bool _minimizeToTray;
     private bool _reduceMotion;
-    private string _saveStatus = "РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅСЏСЋС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё";
+    private string _saveStatus = "Настройки сохраняются автоматически";
     private bool _needsRestart;
     private string _updateStatusText = string.Empty;
     private double _updateProgress;
@@ -162,10 +162,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>РџРѕСЃР»Рµ РѕР±РЅРѕРІР»РµРЅРёСЏ СЃР°РјРѕР№ РїСЂРѕРіСЂР°РјРјС‹ РЅСѓР¶РµРЅ РїРµСЂРµР·Р°РїСѓСЃРє.</summary>
+    /// <summary>После обновления самой программы нужен перезапуск.</summary>
     public event EventHandler? RestartRequested;
 
-    /// <summary>РџРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєР°СЏ РѕС€РёР±РєР° (РїРѕРєР°Р·С‹РІР°РµС‚СЃСЏ РІ РѕРєРЅРµ РЅР°СЃС‚СЂРѕРµРє).</summary>
+    /// <summary>Пользовательская ошибка (показывается в окне настроек).</summary>
     public event EventHandler<string>? ErrorRaised;
 
     public string AppVersion { get; }
@@ -206,8 +206,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     }
 
     public string AutoModeHint => IsAutoMode
-        ? "РџСЂРёР»РѕР¶РµРЅРёРµ РїСЂРѕРІРµСЂРёС‚ РІСЃРµ РѕР±С…РѕРґС‹ Рё РІС‹Р±РµСЂРµС‚ СЃР°РјС‹Р№ Р±С‹СЃС‚СЂС‹Р№. Р­С‚Рѕ Р·Р°РЅРёРјР°РµС‚ РїР°СЂСѓ РјРёРЅСѓС‚ Рё РЅСѓР¶РЅРѕ С‚РѕР»СЊРєРѕ РїСЂРё РїРµСЂРІРѕРј Р·Р°РїСѓСЃРєРµ РёР»Рё РїРѕСЃР»Рµ СЃР±РѕСЏ."
-        : "РџСЂРёР»РѕР¶РµРЅРёРµ Р±СѓРґРµС‚ РІРєР»СЋС‡Р°С‚СЊ РІС‹Р±СЂР°РЅРЅС‹Р№ РѕР±С…РѕРґ. РђРІС‚РѕРїРѕРґР±РѕСЂ РјРѕР¶РЅРѕ Р·Р°РїСѓСЃС‚РёС‚СЊ РєРЅРѕРїРєРѕР№ В«РџСЂРѕС‚РµСЃС‚РёСЂРѕРІР°С‚СЊ Р°Р»СЊС‚С‹В».";
+        ? "Приложение проверит все обходы и выберет самый быстрый. Это занимает пару минут и нужно только при первом запуске или после сбоя."
+        : "Приложение будет включать выбранный обход. Автоподбор можно запустить кнопкой «Протестировать альты».";
 
     public Preset? SelectedManualPreset
     {
@@ -232,11 +232,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         {
             var profile = _config.Connection.AutoProfile;
             if (profile is null)
-                return "РџСЂРѕС„РёР»СЊ РµС‰С‘ РЅРµ РїРѕРґРѕР±СЂР°РЅ вЂ” РІРєР»СЋС‡Рё РѕР±С…РѕРґ РЅР° РіР»Р°РІРЅРѕРј СЌРєСЂР°РЅРµ.";
+                return "Профиль ещё не подобран — включи обход на главном экране.";
 
-            var youtube = profile.YoutubeMs is { } yt ? $"YouTube {yt} РјСЃ" : "YouTube вЂ”";
-            var discord = profile.DiscordMs is { } dc ? $"Discord {dc} РјСЃ" : "Discord вЂ”";
-            return $"{profile.Name} В· {youtube} В· {discord}";
+            var youtube = profile.YoutubeMs is { } yt ? $"YouTube {yt} мс" : "YouTube —";
+            var discord = profile.DiscordMs is { } dc ? $"Discord {dc} мс" : "Discord —";
+            return $"{profile.Name} · {youtube} · {discord}";
         }
     }
 
@@ -273,7 +273,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>РўРѕРЅРєР°СЏ РЅР°СЃС‚СЂРѕР№РєР° С„РёР»СЊС‚СЂР°, РєРѕРіРґР° РёРіСЂРѕРІРѕР№ РїСЂРѕС„РёР»СЊ РІС‹РєР»СЋС‡РµРЅ.</summary>
+    /// <summary>Тонкая настройка фильтра, когда игровой профиль выключен.</summary>
     public GameFilterMode DetailedGameFilter
     {
         get => _lastDetailedFilter;
@@ -459,7 +459,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ICommand RestartConnectionCommand => _restartConnectionCommand;
 
-    /// <summary>РџСЂРѕС‡РёС‚Р°С‚СЊ РЅР°СЃС‚СЂРѕР№РєРё Р·Р°РЅРѕРІРѕ (РїРѕСЃР»Рµ РјРёРіСЂР°С†РёРё/РІРЅРµС€РЅРµРіРѕ РёР·РјРµРЅРµРЅРёСЏ).</summary>
+    /// <summary>Прочитать настройки заново (после миграции/внешнего изменения).</summary>
     public void Reload()
     {
         _config = _coordinator.Config ?? _config;
@@ -467,7 +467,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         RefreshPresets();
     }
 
-    /// <summary>Р’С‹Р±СЂР°С‚СЊ РїР°РїРєСѓ РґРІРёР¶РєР° РІСЂСѓС‡РЅСѓСЋ.</summary>
+    /// <summary>Выбрать папку движка вручную.</summary>
     public void ChangeEnginePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -476,27 +476,27 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         var validation = _locateEngine(path);
         if (!validation.IsValid)
         {
-            EngineStatusText = "РџР°РїРєР° РЅРµ РїРѕРґС…РѕРґРёС‚: " + string.Join(", ", validation.MissingFiles);
+            EngineStatusText = "Папка не подходит: " + string.Join(", ", validation.MissingFiles);
             return;
         }
 
         _config = _config with { Engine = new EngineSettings { Path = path } };
         EnginePath = validation.EngineRoot ?? path;
-        EngineStatusText = "Р”РІРёР¶РѕРє РЅР°Р№РґРµРЅ";
+        EngineStatusText = "Движок найден";
         SaveAndApply();
     }
 
-    /// <summary>РџРѕРєР°Р·Р°С‚СЊ С„Р°РєС‚РёС‡РµСЃРєРёР№ РїСѓС‚СЊ РґРІРёР¶РєР°, РЅР°Р№РґРµРЅРЅС‹Р№ РїСЂРёР»РѕР¶РµРЅРёРµРј.</summary>
+    /// <summary>Показать фактический путь движка, найденный приложением.</summary>
     public void SetResolvedEngineRoot(string? engineRoot)
     {
         if (string.IsNullOrWhiteSpace(engineRoot))
             return;
 
         EnginePath = engineRoot;
-        EngineStatusText = "Р”РІРёР¶РѕРє: " + engineRoot;
+        EngineStatusText = "Движок: " + engineRoot;
     }
 
-    /// <summary>Р”РѕР±Р°РІРёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ РїСЂРµСЃРµС‚.</summary>
+    /// <summary>Добавить пользовательский пресет.</summary>
     public void AddCustomPreset(CustomPreset preset)
     {
         ArgumentNullException.ThrowIfNull(preset);
@@ -506,7 +506,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         CommitCustomPresets(presets);
     }
 
-    /// <summary>РР·РјРµРЅРёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ РїСЂРµСЃРµС‚ РїРѕ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂСѓ.</summary>
+    /// <summary>Изменить пользовательский пресет по идентификатору.</summary>
     public void UpdateCustomPreset(string id, CustomPreset updated)
     {
         var presets = _config.CustomPresets
@@ -515,7 +515,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         CommitCustomPresets(presets);
     }
 
-    /// <summary>РЈРґР°Р»РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ РїСЂРµСЃРµС‚.</summary>
+    /// <summary>Удалить пользовательский пресет.</summary>
     public void RemoveCustomPreset(string id)
     {
         var presets = _config.CustomPresets
@@ -524,7 +524,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         CommitCustomPresets(presets);
     }
 
-    /// <summary>РўРµРєСЃС‚ Р¶СѓСЂРЅР°Р»Р° РґР»СЏ РєРѕРїРёСЂРѕРІР°РЅРёСЏ.</summary>
+    /// <summary>Текст журнала для копирования.</summary>
     public string BuildLogText() => ReadLogText();
 
     private void LoadFromConfig()
@@ -547,8 +547,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 CustomPresets.Add(preset);
 
             EngineStatusText = string.IsNullOrWhiteSpace(EnginePath)
-                ? "Р”РІРёР¶РѕРє РёС‰РµС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё"
-                : "Р”РІРёР¶РѕРє: " + EnginePath;
+                ? "Движок ищется автоматически"
+                : "Движок: " + EnginePath;
         }
         finally
         {
@@ -590,7 +590,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            _logger.Error("РџСЂРѕРІРµСЂРєР° Р°РІС‚РѕР·Р°РїСѓСЃРєР°: " + ex.Message, ex);
+            _logger.Error("Проверка автозапуска: " + ex.Message, ex);
         }
     }
 
@@ -620,20 +620,20 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            _logger.Error("РђРІС‚РѕР·Р°РїСѓСЃРє: " + ex.Message, ex);
+            _logger.Error("Автозапуск: " + ex.Message, ex);
 
             var actual = IsAutostartEnabled;
             try { actual = await _autostart.IsEnabledAsync().ConfigureAwait(false); }
-            catch { /* РѕСЃС‚Р°РІР»СЏРµРј РїСЂРµР¶РЅРµРµ Р·РЅР°С‡РµРЅРёРµ */ }
+            catch { /* оставляем прежнее значение */ }
 
             _dispatcher.Post(() =>
             {
                 _initializing = true;
                 IsAutostartEnabled = actual;
                 _initializing = false;
-                SaveStatus = "РќРµ СѓРґР°Р»РѕСЃСЊ РёР·РјРµРЅРёС‚СЊ Р°РІС‚РѕР·Р°РїСѓСЃРє: " + ex.Message;
+                SaveStatus = "Не удалось изменить автозапуск: " + ex.Message;
                 ErrorRaised?.Invoke(this,
-                    "РќРµ СѓРґР°Р»РѕСЃСЊ РёР·РјРµРЅРёС‚СЊ Р°РІС‚РѕР·Р°РїСѓСЃРє. Р—Р°РїСѓСЃС‚Рё РїСЂРѕРіСЂР°РјРјСѓ РѕС‚ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° Рё РїРѕРїСЂРѕР±СѓР№ СЃРЅРѕРІР°.");
+                    "Не удалось изменить автозапуск. Запусти программу от администратора и попробуй снова.");
             });
         }
     }
@@ -646,12 +646,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         var validation = _locateEngine(_config.Engine.Path);
         if (!validation.IsValid || string.IsNullOrWhiteSpace(validation.EngineRoot))
         {
-            PresetTestStatus = "Р”РІРёР¶РѕРє РЅРµ РЅР°Р№РґРµРЅ. РЈРєР°Р¶Рё РїР°РїРєСѓ РґРІРёР¶РєР°.";
+            PresetTestStatus = "Движок не найден. Укажи папку движка.";
             return;
         }
 
         if (_coordinator.Snapshot.State == ConnectionState.Connected &&
-            !_confirm("РўРµРєСѓС‰РёР№ РѕР±С…РѕРґ Р±СѓРґРµС‚ РІСЂРµРјРµРЅРЅРѕ РІС‹РєР»СЋС‡РµРЅ РЅР° РІСЂРµРјСЏ РїСЂРѕРІРµСЂРєРё. РџСЂРѕРґРѕР»Р¶РёС‚СЊ?"))
+            !_confirm("Текущий обход будет временно выключен на время проверки. Продолжить?"))
         {
             return;
         }
@@ -670,7 +670,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             var presets = ManualPresets;
             if (presets.Count == 0)
             {
-                PresetTestStatus = "РџСЂРµСЃРµС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹.";
+                PresetTestStatus = "Пресеты не найдены.";
                 return;
             }
 
@@ -705,19 +705,19 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 }
 
                 var ok = results.Count(item => item.Qualified);
-                PresetTestStatus = $"РџСЂРѕРІРµСЂРµРЅРѕ {results.Count}, СЂР°Р±РѕС‚Р°СЋС‚ РѕР±Р° СЃРµСЂРІРёСЃР° Сѓ {ok}.";
+                PresetTestStatus = $"Проверено {results.Count}, работают оба сервиса у {ok}.";
             });
         }
         catch (OperationCanceledException)
         {
             _dispatcher.Post(() => PresetTestStatus = PresetTestResults.Count > 0
-                ? $"РџСЂРѕРІРµСЂРєР° РѕСЃС‚Р°РЅРѕРІР»РµРЅР°. РЈР¶Рµ РЅР°Р№РґРµРЅРѕ СЂР°Р±РѕС‡РёС…: {PresetTestResults.Count(row => row.Qualified)}."
-                : "РџСЂРѕРІРµСЂРєР° РѕСЃС‚Р°РЅРѕРІР»РµРЅР°.");
+                ? $"Проверка остановлена. Уже найдено рабочих: {PresetTestResults.Count(row => row.Qualified)}."
+                : "Проверка остановлена.");
         }
         catch (Exception ex)
         {
-            _logger.Error("РўРµСЃС‚ РѕР±С…РѕРґРѕРІ: " + ex.Message, ex);
-            _dispatcher.Post(() => PresetTestStatus = "РћС€РёР±РєР° РїСЂРѕРІРµСЂРєРё: " + ex.Message);
+            _logger.Error("Тест обходов: " + ex.Message, ex);
+            _dispatcher.Post(() => PresetTestStatus = "Ошибка проверки: " + ex.Message);
         }
         finally
         {
@@ -754,7 +754,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedManualPreset));
         SaveAndApply();
         MarkNeedsRestart();
-        PresetTestStatus = $"Р’С‹Р±СЂР°РЅ РѕР±С…РѕРґ: {preset.Name}. РџРµСЂРµР·Р°РїСѓСЃС‚Рё РѕР±С…РѕРґ, С‡С‚РѕР±С‹ РїСЂРёРјРµРЅРёС‚СЊ.";
+        PresetTestStatus = $"Выбран обход: {preset.Name}. Перезапусти обход, чтобы применить.";
         return Task.CompletedTask;
     }
 
@@ -797,7 +797,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         SaveAndApply();
         OnPropertyChanged(nameof(CurrentProfileText));
         MarkNeedsRestart();
-        PresetTestStatus = $"В«{preset.Name}В» СЃРѕС…СЂР°РЅС‘РЅ РєР°Рє Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРёР№ РїСЂРѕС„РёР»СЊ.";
+        PresetTestStatus = $"«{preset.Name}» сохранён как автоматический профиль.";
     }
 
     private async Task CheckUpdatesAsync()
@@ -806,7 +806,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         try
         {
             UpdateProgress = 0;
-            UpdateStatusText = "РџСЂРѕРІРµСЂСЏРµРј РѕР±РЅРѕРІР»РµРЅРёСЏвЂ¦";
+            UpdateStatusText = "Проверяем обновления…";
 
             var engineLatest = await _gitHub.GetLatestAsync(
                 "Flowseal/zapret-discord-youtube", CancellationToken.None).ConfigureAwait(false);
@@ -820,31 +820,31 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             if (engineLatest is not null)
             {
                 text += VersionComparer.IsNewer(engineLatest.Tag, _catalog.EngineVersion)
-                    ? $"Р”РѕСЃС‚СѓРїРЅР° РІРµСЂСЃРёСЏ РґРІРёР¶РєР° {engineLatest.Tag} (СѓСЃС‚Р°РЅРѕРІР»РµРЅР° {_catalog.EngineVersion}). "
-                    : $"Р”РІРёР¶РѕРє Р°РєС‚СѓР°Р»РµРЅ (v{_catalog.EngineVersion}). ";
+                    ? $"Доступна версия движка {engineLatest.Tag} (установлена {_catalog.EngineVersion}). "
+                    : $"Движок актуален (v{_catalog.EngineVersion}). ";
             }
             else
             {
-                text += "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ РґРІРёР¶РѕРє. ";
+                text += "Не удалось проверить движок. ";
             }
 
             if (appLatest is not null)
             {
                 text += VersionComparer.IsNewer(appLatest.Tag, AppVersion)
-                    ? $"Р”РѕСЃС‚СѓРїРЅР° РІРµСЂСЃРёСЏ РїСЂРѕРіСЂР°РјРјС‹ {appLatest.Tag} (СѓСЃС‚Р°РЅРѕРІР»РµРЅР° v{AppVersion})."
-                    : $"РџСЂРѕРіСЂР°РјРјР° Р°РєС‚СѓР°Р»СЊРЅР° (v{AppVersion}).";
+                    ? $"Доступна версия программы {appLatest.Tag} (установлена v{AppVersion})."
+                    : $"Программа актуальна (v{AppVersion}).";
             }
             else
             {
-                text += "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ РїСЂРѕРіСЂР°РјРјСѓ.";
+                text += "Не удалось проверить программу.";
             }
 
             _dispatcher.Post(() => UpdateStatusText = text.Trim());
         }
         catch (Exception ex)
         {
-            _logger.Error("РџСЂРѕРІРµСЂРєР° РѕР±РЅРѕРІР»РµРЅРёР№: " + ex.Message, ex);
-            _dispatcher.Post(() => UpdateStatusText = "РћС€РёР±РєР° РїСЂРѕРІРµСЂРєРё РѕР±РЅРѕРІР»РµРЅРёР№: " + ex.Message);
+            _logger.Error("Проверка обновлений: " + ex.Message, ex);
+            _dispatcher.Post(() => UpdateStatusText = "Ошибка проверки обновлений: " + ex.Message);
         }
         finally
         {
@@ -857,43 +857,43 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         if (IsPortable)
         {
-            UpdateStatusText = "Р”РІРёР¶РѕРє РІСЃС‚СЂРѕРµРЅ РІ portable-РІРµСЂСЃРёСЋ. РћР±РЅРѕРІРёС‚Рµ РїСЂРѕРіСЂР°РјРјСѓ С†РµР»РёРєРѕРј.";
+            UpdateStatusText = "Движок встроен в portable-версию. Обновите программу целиком.";
             return;
         }
 
         var engineRoot = _locateEngine(_config.Engine.Path).EngineRoot;
         if (string.IsNullOrWhiteSpace(engineRoot))
         {
-            UpdateStatusText = "Р”РІРёР¶РѕРє РЅРµ РЅР°Р№РґРµРЅ.";
+            UpdateStatusText = "Движок не найден.";
             return;
         }
 
         if (_coordinator.Snapshot.State == ConnectionState.Connected)
         {
-            UpdateStatusText = "РћСЃС‚Р°РЅРѕРІРё РѕР±С…РѕРґ РїРµСЂРµРґ РѕР±РЅРѕРІР»РµРЅРёРµРј РґРІРёР¶РєР°.";
+            UpdateStatusText = "Останови обход перед обновлением движка.";
             return;
         }
 
         IsMaintenanceBusy = true;
         try
         {
-            UpdateStatusText = "РџСЂРѕРІРµСЂСЏРµРј РѕР±РЅРѕРІР»РµРЅРёСЏ РґРІРёР¶РєР°вЂ¦";
+            UpdateStatusText = "Проверяем обновления движка…";
             var release = await _gitHub.GetLatestAsync(
                 "Flowseal/zapret-discord-youtube", CancellationToken.None).ConfigureAwait(false);
 
             if (release is null)
             {
-                UpdateStatusText = "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ РѕР±РЅРѕРІР»РµРЅРёСЏ РґРІРёР¶РєР°.";
+                UpdateStatusText = "Не удалось проверить обновления движка.";
                 return;
             }
 
             if (!VersionComparer.IsNewer(release.Tag, _catalog.EngineVersion))
             {
-                UpdateStatusText = $"РЈР¶Рµ РїРѕСЃР»РµРґРЅСЏСЏ РІРµСЂСЃРёСЏ РґРІРёР¶РєР° (v{_catalog.EngineVersion}).";
+                UpdateStatusText = $"Уже последняя версия движка (v{_catalog.EngineVersion}).";
                 return;
             }
 
-            UpdateStatusText = $"РЎРєР°С‡РёРІР°РЅРёРµ Рё СѓСЃС‚Р°РЅРѕРІРєР° v{release.Tag}вЂ¦";
+            UpdateStatusText = $"Скачивание и установка v{release.Tag}…";
 
             var result = await _engineUpdater.UpdateAsync(
                 release,
@@ -909,12 +909,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 CancellationToken.None).ConfigureAwait(false);
 
             _dispatcher.Post(() => UpdateStatusText = result.Message
-                ?? $"Р”РІРёР¶РѕРє РѕР±РЅРѕРІР»С‘РЅ РґРѕ v{result.NewVersion} ({result.PresetCount} РїСЂРµСЃРµС‚РѕРІ).");
+                ?? $"Движок обновлён до v{result.NewVersion} ({result.PresetCount} пресетов).");
         }
         catch (Exception ex)
         {
-            _logger.Error("РћР±РЅРѕРІР»РµРЅРёРµ РґРІРёР¶РєР°: " + ex.Message, ex);
-            _dispatcher.Post(() => UpdateStatusText = "РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ РґРІРёР¶РєР°: " + ex.Message);
+            _logger.Error("Обновление движка: " + ex.Message, ex);
+            _dispatcher.Post(() => UpdateStatusText = "Ошибка обновления движка: " + ex.Message);
         }
         finally
         {
@@ -927,34 +927,34 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         IsMaintenanceBusy = true;
         try
         {
-            UpdateStatusText = "РџСЂРѕРІРµСЂСЏРµРј РѕР±РЅРѕРІР»РµРЅРёСЏ РїСЂРѕРіСЂР°РјРјС‹вЂ¦";
+            UpdateStatusText = "Проверяем обновления программы…";
             var release = await _gitHub.GetLatestAsync(
                 "Benny4ip/ZPRT_NEXT_GEN", CancellationToken.None).ConfigureAwait(false);
 
             if (release is null)
             {
-                UpdateStatusText = "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ РѕР±РЅРѕРІР»РµРЅРёСЏ РїСЂРѕРіСЂР°РјРјС‹.";
+                UpdateStatusText = "Не удалось проверить обновления программы.";
                 return;
             }
 
             if (!VersionComparer.IsNewer(release.Tag, AppVersion))
             {
-                UpdateStatusText = $"РџСЂРѕРіСЂР°РјРјР° СѓР¶Рµ Р°РєС‚СѓР°Р»СЊРЅР° (v{AppVersion}).";
+                UpdateStatusText = $"Программа уже актуальна (v{AppVersion}).";
                 return;
             }
 
-            UpdateStatusText = $"РџРѕРґРіРѕС‚РѕРІРєР° РѕР±РЅРѕРІР»РµРЅРёСЏ РґРѕ v{release.Tag}вЂ¦";
+            UpdateStatusText = $"Подготовка обновления до v{release.Tag}…";
             var plan = await _appUpdater.PrepareAsync(
                 release, AppContext.BaseDirectory, null, CancellationToken.None, IsPortable).ConfigureAwait(false);
 
             _appUpdater.Launch(plan);
-            UpdateStatusText = $"РћР±РЅРѕРІР»РµРЅРёРµ РґРѕ v{release.Tag} РїРѕРґРіРѕС‚РѕРІР»РµРЅРѕ. РџРµСЂРµР·Р°РїСѓСЃРєвЂ¦";
+            UpdateStatusText = $"Обновление до v{release.Tag} подготовлено. Перезапуск…";
             _dispatcher.Post(() => RestartRequested?.Invoke(this, EventArgs.Empty));
         }
         catch (Exception ex)
         {
-            _logger.Error("РћР±РЅРѕРІР»РµРЅРёРµ РїСЂРѕРіСЂР°РјРјС‹: " + ex.Message, ex);
-            _dispatcher.Post(() => UpdateStatusText = "РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ РїСЂРѕРіСЂР°РјРјС‹: " + ex.Message);
+            _logger.Error("Обновление программы: " + ex.Message, ex);
+            _dispatcher.Post(() => UpdateStatusText = "Ошибка обновления программы: " + ex.Message);
         }
         finally
         {
@@ -974,14 +974,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.Error("GitHub releases: " + ex.Message, ex);
-            ErrorRaised?.Invoke(this, "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ Р±СЂР°СѓР·РµСЂ.");
+            ErrorRaised?.Invoke(this, "Не удалось открыть браузер.");
         }
     }
 
     private async Task CheckConnectivityAsync()
     {
         IsCheckingConnectivity = true;
-        ConnectivityStatus = "РџСЂРѕРІРµСЂСЏРµРј YouTube Рё DiscordвЂ¦";
+        ConnectivityStatus = "Проверяем YouTube и Discord…";
 
         try
         {
@@ -999,16 +999,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                     .ToList();
 
                 ConnectivityStatus = report.BothOk
-                    ? "YouTube Рё Discord РґРѕСЃС‚СѓРїРЅС‹."
+                    ? "YouTube и Discord доступны."
                     : report.IsConnected
-                        ? "РћРґРёРЅ РёР· СЃРµСЂРІРёСЃРѕРІ РЅРµРґРѕСЃС‚СѓРїРµРЅ. РџРѕРїСЂРѕР±СѓР№ РґСЂСѓРіРѕР№ РѕР±С…РѕРґ."
-                        : "РћР±Р° СЃРµСЂРІРёСЃР° РЅРµРґРѕСЃС‚СѓРїРЅС‹. РџСЂРѕРІРµСЂСЊ РёРЅС‚РµСЂРЅРµС‚.";
+                        ? "Один из сервисов недоступен. Попробуй другой обход."
+                        : "Оба сервиса недоступны. Проверь интернет.";
             });
         }
         catch (Exception ex)
         {
-            _logger.Error("РџСЂРѕРІРµСЂРєР° СЃРІСЏР·Рё: " + ex.Message, ex);
-            _dispatcher.Post(() => ConnectivityStatus = "РћС€РёР±РєР° РїСЂРѕРІРµСЂРєРё СЃРІСЏР·Рё: " + ex.Message);
+            _logger.Error("Проверка связи: " + ex.Message, ex);
+            _dispatcher.Post(() => ConnectivityStatus = "Ошибка проверки связи: " + ex.Message);
         }
         finally
         {
@@ -1018,26 +1018,26 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     private async Task FullDiscordResetAsync()
     {
-        if (!_confirm("РџРѕР»РЅС‹Р№ СЃР±СЂРѕСЃ Discord СѓРґР°Р»РёС‚ cookies Рё Р»РѕРєР°Р»СЊРЅС‹Рµ РґР°РЅРЅС‹Рµ Р°РєРєР°СѓРЅС‚Р° вЂ” РїСЂРёРґС‘С‚СЃСЏ РІРѕР№С‚Рё Р·Р°РЅРѕРІРѕ.\n\nРџСЂРѕРґРѕР»Р¶РёС‚СЊ?"))
+        if (!_confirm("Полный сброс Discord удалит cookies и локальные данные аккаунта — придётся войти заново.\n\nПродолжить?"))
             return;
 
         IsFixingDiscord = true;
-        DiscordStatus = "РџРѕР»РЅС‹Р№ СЃР±СЂРѕСЃ DiscordвЂ¦";
+        DiscordStatus = "Полный сброс Discord…";
 
         try
         {
             var result = await _discordFix.FixAsync(fullReset: true, CancellationToken.None).ConfigureAwait(false);
             _dispatcher.Post(() => DiscordStatus = result.Status switch
             {
-                DiscordFixStatus.Success => "Р“РѕС‚РѕРІРѕ. Discord РїРµСЂРµР·Р°РїСѓС‰РµРЅ, РІРѕР№РґРё РІ Р°РєРєР°СѓРЅС‚ Р·Р°РЅРѕРІРѕ.",
-                DiscordFixStatus.NotInstalled => "Discord РЅРµ РЅР°Р№РґРµРЅ РЅР° СЌС‚РѕРј РєРѕРјРїСЊСЋС‚РµСЂРµ.",
-                _ => result.ErrorMessage ?? "РќРµ СѓРґР°Р»РѕСЃСЊ РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚СЊ Discord.",
+                DiscordFixStatus.Success => "Готово. Discord перезапущен, войди в аккаунт заново.",
+                DiscordFixStatus.NotInstalled => "Discord не найден на этом компьютере.",
+                _ => result.ErrorMessage ?? "Не удалось перезапустить Discord.",
             });
         }
         catch (Exception ex)
         {
-            _logger.Error("РџРѕР»РЅС‹Р№ СЃР±СЂРѕСЃ Discord: " + ex.Message, ex);
-            _dispatcher.Post(() => DiscordStatus = "РћС€РёР±РєР° РїРѕР»РЅРѕРіРѕ СЃР±СЂРѕСЃР°: " + ex.Message);
+            _logger.Error("Полный сброс Discord: " + ex.Message, ex);
+            _dispatcher.Post(() => DiscordStatus = "Ошибка полного сброса: " + ex.Message);
         }
         finally
         {
@@ -1054,8 +1054,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            _logger.Error("РћС‚РєСЂС‹С‚РёРµ Р»РѕРіРѕРІ: " + ex.Message, ex);
-            ErrorRaised?.Invoke(this, "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ РїР°РїРєСѓ Р»РѕРіРѕРІ.");
+            _logger.Error("Открытие логов: " + ex.Message, ex);
+            ErrorRaised?.Invoke(this, "Не удалось открыть папку логов.");
         }
     }
 
@@ -1069,7 +1069,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            _logger.Error("РџРµСЂРµР·Р°РїСѓСЃРє РѕР±С…РѕРґР°: " + ex.Message, ex);
+            _logger.Error("Перезапуск обхода: " + ex.Message, ex);
         }
     }
 
@@ -1086,7 +1086,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         RefreshPresets();
         _applyCatalog?.Invoke(PresetCatalogBuilder.Build(_baseCatalog, _config.CustomPresets));
         SaveAndApply();
-        SaveStatus = "РњРѕРё РїСЂРµСЃРµС‚С‹ СЃРѕС…СЂР°РЅРµРЅС‹";
+        SaveStatus = "Мои пресеты сохранены";
     }
 
     private void MarkNeedsRestart()
@@ -1101,13 +1101,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         {
             _configStore.Save(_config);
             _coordinator.ApplyConfig(_config);
-            SaveStatus = "РЎРѕС…СЂР°РЅРµРЅРѕ";
+            SaveStatus = "Сохранено";
             OnPropertyChanged(nameof(CurrentProfileText));
         }
         catch (Exception ex)
         {
-            _logger.Error("РЎРѕС…СЂР°РЅРµРЅРёРµ РЅР°СЃС‚СЂРѕРµРє: " + ex.Message, ex);
-            SaveStatus = "РћС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ: " + ex.Message;
+            _logger.Error("Сохранение настроек: " + ex.Message, ex);
+            SaveStatus = "Ошибка сохранения: " + ex.Message;
         }
     }
 
@@ -1127,7 +1127,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            _logger.Error("Р§С‚РµРЅРёРµ Р»РѕРіРѕРІ: " + ex.Message, ex);
+            _logger.Error("Чтение логов: " + ex.Message, ex);
             return string.Empty;
         }
     }
@@ -1161,4 +1161,3 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
-

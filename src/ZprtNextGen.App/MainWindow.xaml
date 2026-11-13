@@ -48,7 +48,6 @@
       </Grid.ColumnDefinitions>
 
       <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-        <Ellipse Width="10" Height="10" Fill="{StaticResource Brush.Accent}" Margin="0,0,10,0" />
         <TextBlock Text="ZPRT NEXT GEN" FontSize="15" FontWeight="SemiBold"
                    Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" />
       </StackPanel>

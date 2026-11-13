@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="ZprtNextGen.App.Controls.ConnectionOrb"
+<UserControl x:Class="ZprtNextGen.App.Controls.ConnectionOrb"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -10,7 +10,7 @@
              AutomationProperties.Name="{Binding AutomationName, ElementName=Root}">
   <Grid Width="320" Height="320" Background="Transparent">
 
-    <!-- РњСЏРіРєРѕРµ СЃРІРµС‡РµРЅРёРµ РїРѕРґ РґРёСЃРєРѕРј. -->
+    <!-- Мягкое свечение под диском. -->
     <Ellipse x:Name="Glow" Width="290" Height="290" Opacity="0.55">
       <Ellipse.Fill>
         <RadialGradientBrush>
@@ -23,7 +23,7 @@
       </Ellipse.Effect>
     </Ellipse>
 
-    <!-- РРЅРґРёРєР°С‚РѕСЂ РїСЂРѕРіСЂРµСЃСЃР°: РєРѕР»СЊС†Рѕ РІРѕРєСЂСѓРі РѕСЂР±Р°. -->
+    <!-- Индикатор прогресса: кольцо вокруг орба. -->
     <Ellipse Width="296" Height="296" Stroke="#222222" StrokeThickness="3" />
     <Path x:Name="ProgressArc" Stroke="#F5A524" StrokeThickness="6"
           StrokeStartLineCap="Round" StrokeEndLineCap="Round"
@@ -83,14 +83,9 @@
             <Trigger Property="IsPressed" Value="True">
               <Setter TargetName="Disc" Property="Opacity" Value="0.8" />
             </Trigger>
-            
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Button.Template>
     </Button>
   </Grid>
 </UserControl>
-
-
-
-

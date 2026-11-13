@@ -4,7 +4,7 @@ using ZprtNextGen.Core.Updates;
 
 namespace ZprtNextGen.App.Tests.Fakes;
 
-/// <summary>Р¤РµР№РєРѕРІРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ РїСЂРѕРіСЂР°РјРјС‹ РґР»СЏ С‚РµСЃС‚РѕРІ ViewModel.</summary>
+/// <summary>Фейковое обновление программы для тестов ViewModel.</summary>
 public sealed class FakeAppUpdater : IAppUpdater
 {
     public AppUpdatePlan Plan = new(@"C:\temp\ZPRT_Update.cmd", @"C:\temp\ZprtNextGen.exe", @"C:\app\ZprtNextGen.exe");
