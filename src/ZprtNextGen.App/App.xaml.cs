@@ -121,10 +121,10 @@ public partial class App : Application
         string version)
     {
         StartupWindow? splash = options.StartInTray ? null : new StartupWindow();
-        splash?.Show();
 
         try
         {
+            splash?.Show();
             var installer = new PortableEngineInstaller(embeddedEngine, version, logger: logger);
             var portableEngine = await installer.InstallAsync(CancellationToken.None);
             if (portableEngine is not null)
