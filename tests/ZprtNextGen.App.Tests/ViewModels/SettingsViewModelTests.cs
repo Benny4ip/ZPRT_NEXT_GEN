@@ -211,22 +211,32 @@ public class SettingsViewModelTests
     public void SelectedSection_CanBeChanged()
     {
         var vm = CreateSut(isPortable: false);
+        var notified = false;
+        vm.PropertyChanged += (_, args) =>
+            notified |= args.PropertyName == nameof(SettingsViewModel.SelectedSection);
 
         vm.SelectedSection = SettingsSection.Diagnostics;
 
         Assert.Equal(SettingsSection.Diagnostics, vm.SelectedSection);
+        Assert.True(notified);
     }
 
     [Fact]
     public void OpenAboutCommand_RaisesAboutRequested()
     {
         var vm = CreateSut(isPortable: false);
-        var raised = false;
-        vm.AboutRequested += (_, _) => raised = true;
+        object? sender = null;
+        var raised = 0;
+        vm.AboutRequested += (s, _) =>
+        {
+            sender = s;
+            raised++;
+        };
 
         vm.OpenAboutCommand.Execute(null);
 
-        Assert.True(raised);
+        Assert.Equal(1, raised);
+        Assert.Same(vm, sender);
     }
 
     private static async Task WaitForAsync(AsyncRelayCommand command)
