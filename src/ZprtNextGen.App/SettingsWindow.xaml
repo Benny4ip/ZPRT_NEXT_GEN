@@ -205,9 +205,12 @@
       </Border>
 
       <Grid Grid.Row="2">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
         <!-- 1. Основное -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
           <ScrollViewer.Style>
             <Style TargetType="ScrollViewer" BasedOn="{StaticResource DarkScrollViewer}">
               <Setter Property="Visibility" Value="Collapsed" />
@@ -307,7 +310,7 @@
         </ScrollViewer>
 
         <!-- 2. Пресеты -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
           <ScrollViewer.Style>
             <Style TargetType="ScrollViewer" BasedOn="{StaticResource DarkScrollViewer}">
               <Setter Property="Visibility" Value="Collapsed" />
@@ -413,7 +416,7 @@
         </ScrollViewer>
 
         <!-- 3. Запуск и трей -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
           <ScrollViewer.Style>
             <Style TargetType="ScrollViewer" BasedOn="{StaticResource DarkScrollViewer}">
               <Setter Property="Visibility" Value="Collapsed" />
@@ -473,7 +476,7 @@
         </ScrollViewer>
 
         <!-- 4. Обновления -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
           <ScrollViewer.Style>
             <Style TargetType="ScrollViewer" BasedOn="{StaticResource DarkScrollViewer}">
               <Setter Property="Visibility" Value="Collapsed" />
@@ -532,7 +535,7 @@
         </ScrollViewer>
 
         <!-- 5. Диагностика -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
           <ScrollViewer.Style>
             <Style TargetType="ScrollViewer" BasedOn="{StaticResource DarkScrollViewer}">
               <Setter Property="Visibility" Value="Collapsed" />
