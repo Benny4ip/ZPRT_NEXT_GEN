@@ -127,9 +127,13 @@ public sealed class PresetTester : IPresetTester
 
                 if (_engine.Status != EngineStatus.Running)
                 {
-                    result = new PresetTestResult(
-                        preset.Id, preset.Name, false, null,
-                        "Движок (winws) завершился сразу после запуска. Проверьте права администратора, WinDivert/драйвер, файлы списков и аргументы пресета.");
+                    // WaitForEngineRunningAsync возвращает при упавшем процессе или по истечении
+                    // времени ожидания — диагностика различаем, иначе «завершился» неверно.
+                    var reason = _engine.Status is EngineStatus.Stopped or EngineStatus.Error
+                        ? "Движок (winws) завершился сразу после запуска. Проверьте права администратора, WinDivert/драйвер, файлы списков и аргументы пресета."
+                        : "Движок (winws) не отвечает в течение отведённого времени. Проверьте права администратора, WinDivert/драйвер, файлы списков и аргументы пресета.";
+
+                    result = new PresetTestResult(preset.Id, preset.Name, false, null, reason);
                 }
                 else
                 {
