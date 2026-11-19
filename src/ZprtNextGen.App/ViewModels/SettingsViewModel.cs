@@ -87,7 +87,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     private AppConfig _config;
     private PresetCatalog _catalog;
-    private GameFilterMode _lastDetailedFilter = GameFilterMode.Disabled;
     private bool _initializing;
     private bool _isAutoMode;
     private Preset? _selectedManualPreset;
@@ -263,11 +262,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         get => _gameFilter;
         set
         {
-            if (!SetField(ref _gameFilter, value) || _initializing)
+            if (!SetField(ref _gameFilter, value))
                 return;
 
-            if (value is GameFilterMode.Tcp or GameFilterMode.Udp or GameFilterMode.All)
-                _lastDetailedFilter = value;
+            OnPropertyChanged(nameof(DetailedGameFilter));
+
+            if (_initializing)
+                return;
 
             _initializing = true;
             IsGameProfileEnabled = value == GameFilterMode.All;
@@ -282,15 +283,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>Тонкая настройка фильтра, когда игровой профиль выключен.</summary>
     public GameFilterMode DetailedGameFilter
     {
-        get => _lastDetailedFilter;
-        set
-        {
-            if (value == GameFilterMode.Disabled)
-                IsGameProfileEnabled = false;
-            else
-                GameFilter = value;
-            OnPropertyChanged();
-        }
+        get => _gameFilter;
+        set => GameFilter = value;
     }
 
     public string EnginePath
@@ -540,9 +534,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         {
             IsAutoMode = _config.Connection.Mode == ConnectionMode.Auto;
             GameFilter = _config.GameFilter;
-            _lastDetailedFilter = _config.GameFilter is GameFilterMode.Tcp or GameFilterMode.Udp or GameFilterMode.All
-                ? _config.GameFilter
-                : GameFilterMode.All;
             IsGameProfileEnabled = _config.GameFilter == GameFilterMode.All;
             MinimizeToTray = _config.Behavior.MinimizeToTray;
             ReduceMotion = _config.Behavior.ReduceMotion;

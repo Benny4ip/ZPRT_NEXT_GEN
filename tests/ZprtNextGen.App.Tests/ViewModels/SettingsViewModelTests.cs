@@ -128,6 +128,41 @@ public class SettingsViewModelTests
         Assert.Contains("Benny4ip/ZPRT_NEXT_GEN", gitHub.RequestedRepos);
     }
 
+    [Fact]
+    public void DetailedGameFilter_WhenProfileDisabled_ReportsDisabled()
+    {
+        var vm = CreateSut(isPortable: false);
+        vm.GameFilter = GameFilterMode.All;
+        vm.IsGameProfileEnabled = false;
+
+        Assert.Equal(GameFilterMode.Disabled, vm.DetailedGameFilter);
+    }
+
+    [Fact]
+    public void DetailedGameFilter_SetDisabled_DisablesActualFilter()
+    {
+        var vm = CreateSut(isPortable: false);
+        vm.GameFilter = GameFilterMode.Tcp;
+
+        vm.DetailedGameFilter = GameFilterMode.Disabled;
+
+        Assert.Equal(GameFilterMode.Disabled, vm.GameFilter);
+        Assert.False(vm.IsGameProfileEnabled);
+        Assert.Equal(GameFilterMode.Disabled, vm.DetailedGameFilter);
+    }
+
+    [Fact]
+    public void DetailedGameFilter_SetTcp_KeepsProfileOff()
+    {
+        var vm = CreateSut(isPortable: false);
+        vm.GameFilter = GameFilterMode.All;
+
+        vm.DetailedGameFilter = GameFilterMode.Tcp;
+
+        Assert.Equal(GameFilterMode.Tcp, vm.GameFilter);
+        Assert.False(vm.IsGameProfileEnabled);
+    }
+
     private static async Task WaitForAsync(AsyncRelayCommand command)
     {
         for (var attempt = 0; attempt < 400 && command.IsRunning; attempt++)
