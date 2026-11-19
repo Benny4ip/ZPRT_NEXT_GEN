@@ -97,7 +97,7 @@ public sealed class PortableEngineInstaller
         try
         {
             Directory.CreateDirectory(temporary);
-            Extract(_zip!, temporary);
+            await Task.Run(() => Extract(_zip!, temporary), ct).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
 

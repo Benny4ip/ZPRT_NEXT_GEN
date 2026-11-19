@@ -80,9 +80,25 @@ public partial class App : Application
 
         InstallGlobalExceptionHandlers(logger, logsDirectory);
 
+        var version = typeof(App).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+        var embeddedEngine = PortableEngineInstaller.ReadEmbeddedEngine(typeof(App).Assembly);
+        var isPortable = embeddedEngine is { Length: > 0 };
+
+        if (options.PortableCheck)
+        {
+            RunPortableCheck(embeddedEngine, version, logger);
+            return;
+        }
+
+        if (isPortable)
+        {
+            _ = StartPortableAsync(options, logger, logsDirectory, embeddedEngine!, version);
+            return;
+        }
+
         try
         {
-            Start(options, logger, logsDirectory);
+            StartCore(options, logger, logsDirectory, version, isPortable: false, portableEngine: null);
         }
         catch (Exception ex)
         {
@@ -97,28 +113,50 @@ public partial class App : Application
         }
     }
 
-    private void Start(AppStartupOptions options, IAppLogger logger, string logsDirectory)
+    private async Task StartPortableAsync(
+        AppStartupOptions options,
+        IAppLogger logger,
+        string logsDirectory,
+        byte[] embeddedEngine,
+        string version)
     {
-        var version = typeof(App).Assembly.GetName().Version?.ToString() ?? "0.0.0";
-        var embeddedEngine = PortableEngineInstaller.ReadEmbeddedEngine(typeof(App).Assembly);
-        var isPortable = embeddedEngine is { Length: > 0 };
+        StartupWindow? splash = options.StartInTray ? null : new StartupWindow();
+        splash?.Show();
 
-        if (options.PortableCheck)
-        {
-            RunPortableCheck(embeddedEngine, version, logger);
-            return;
-        }
-
-        // Portable: распаковать встроенный движок в кэш %LOCALAPPDATA%.
-        PortableEngineResult? portableEngine = null;
-        if (isPortable)
+        try
         {
             var installer = new PortableEngineInstaller(embeddedEngine, version, logger: logger);
-            portableEngine = installer.InstallAsync(CancellationToken.None).GetAwaiter().GetResult();
+            var portableEngine = await installer.InstallAsync(CancellationToken.None);
             if (portableEngine is not null)
                 logger.Info("Portable-движок: " + portableEngine.EngineRoot);
-        }
 
+            // Сначала показываем главное окно (или создаём трей), только потом закрываем splash.
+            // Иначе при ShutdownMode=OnLastWindowClose закрытие splash завершит процесс.
+            StartCore(options, logger, logsDirectory, version, isPortable: true, portableEngine);
+            splash?.Close();
+        }
+        catch (Exception ex)
+        {
+            splash?.Close();
+            logger.Error("Не удалось запустить приложение: " + ex, ex);
+            MessageBox.Show(
+                "Не удалось запустить ZPRT NEXT GEN:\n" + ex.Message +
+                $"\n\nПодробности в журнале:\n{logsDirectory}",
+                "ZPRT NEXT GEN",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+        }
+    }
+
+    private void StartCore(
+        AppStartupOptions options,
+        IAppLogger logger,
+        string logsDirectory,
+        string version,
+        bool isPortable,
+        PortableEngineResult? portableEngine)
+    {
         var baseDirectory = AppContext.BaseDirectory;
         var configStore = ConfigStore.CreateDefault();
         var config = configStore.Load();
