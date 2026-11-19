@@ -182,9 +182,14 @@ public class SettingsViewModelTests
     public void IsManualMode_ReflectsAutoMode()
     {
         var vm = CreateSut(isPortable: false);
+        vm.IsAutoMode = false;
+        var manualNotified = false;
+        vm.PropertyChanged += (_, args) =>
+            manualNotified |= args.PropertyName == nameof(SettingsViewModel.IsManualMode);
 
         vm.IsAutoMode = true;
         Assert.False(vm.IsManualMode);
+        Assert.True(manualNotified);
 
         vm.IsManualMode = true;
         Assert.False(vm.IsAutoMode);
