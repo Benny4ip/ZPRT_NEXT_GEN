@@ -152,6 +152,20 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public void DetailedGameFilter_SetDisabled_PersistsDisabled()
+    {
+        var tempDir = Path.Combine(
+            Path.GetTempPath(), "ZprtNextGen.App.Tests", Guid.NewGuid().ToString("N"));
+        var vm = CreateSut(isPortable: false, tempDir: tempDir);
+        vm.GameFilter = GameFilterMode.Tcp;
+
+        vm.DetailedGameFilter = GameFilterMode.Disabled;
+
+        var saved = new ConfigStore(Path.Combine(tempDir, "config.json")).Load();
+        Assert.Equal(GameFilterMode.Disabled, saved.GameFilter);
+    }
+
+    [Fact]
     public void DetailedGameFilter_SetTcp_KeepsProfileOff()
     {
         var vm = CreateSut(isPortable: false);
