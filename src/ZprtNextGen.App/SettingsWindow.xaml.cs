@@ -120,8 +120,6 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnAbout(object sender, RoutedEventArgs e) => OnAboutRequested(sender, e);
-
     private void OnAboutRequested(object? sender, EventArgs e)
     {
         var window = new AboutWindow(_viewModel.EngineVersion) { Owner = this };
