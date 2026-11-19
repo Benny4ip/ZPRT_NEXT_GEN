@@ -15,7 +15,13 @@ public sealed class FakeAutostart : IAutostartService
 
     public int DisableCalls { get; private set; }
 
-    public Task<bool> IsEnabledAsync(CancellationToken ct = default) => Task.FromResult(Enabled);
+    public int IsEnabledCalls { get; private set; }
+
+    public Task<bool> IsEnabledAsync(CancellationToken ct = default)
+    {
+        IsEnabledCalls++;
+        return Task.FromResult(Enabled);
+    }
 
     public Task EnableAsync(CancellationToken ct = default)
     {

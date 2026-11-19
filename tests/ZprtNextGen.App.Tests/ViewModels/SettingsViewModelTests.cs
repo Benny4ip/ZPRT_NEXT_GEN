@@ -33,7 +33,8 @@ public class SettingsViewModelTests
     private static SettingsViewModel CreateSut(
         bool isPortable,
         FakeGitHubReleaseClient? gitHub = null,
-        string? tempDir = null)
+        string? tempDir = null,
+        FakeAutostart? autostart = null)
     {
         tempDir ??= Path.Combine(Path.GetTempPath(), "ZprtNextGen.App.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
@@ -62,7 +63,7 @@ public class SettingsViewModelTests
             Catalog(),
             engineProcess,
             connectivity,
-            new FakeAutostart(),
+            autostart ?? new FakeAutostart(),
             new FakeDiscordFixService(),
             new FakePresetTester(),
             gitHub ?? new FakeGitHubReleaseClient(),
@@ -175,6 +176,26 @@ public class SettingsViewModelTests
 
         Assert.Equal(GameFilterMode.Tcp, vm.GameFilter);
         Assert.False(vm.IsGameProfileEnabled);
+    }
+
+    [Fact]
+    public void Constructor_ReadsAutostartOnce()
+    {
+        var autostart = new FakeAutostart();
+        _ = CreateSut(isPortable: false, autostart: autostart);
+
+        Assert.Equal(1, autostart.IsEnabledCalls);
+    }
+
+    [Fact]
+    public void Reload_DoesNotReadAutostartAgain()
+    {
+        var autostart = new FakeAutostart();
+        var vm = CreateSut(isPortable: false, autostart: autostart);
+
+        vm.Reload();
+
+        Assert.Equal(1, autostart.IsEnabledCalls);
     }
 
     private static async Task WaitForAsync(AsyncRelayCommand command)

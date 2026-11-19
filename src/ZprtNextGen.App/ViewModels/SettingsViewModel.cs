@@ -157,6 +157,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         LoadFromConfig();
         RefreshPresets();
+        _ = RefreshAutostartAsync();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -552,7 +553,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             _initializing = false;
         }
 
-        _ = RefreshAutostartAsync();
         OnPropertyChanged(nameof(CurrentProfileText));
         OnPropertyChanged(nameof(AutoModeHint));
     }
