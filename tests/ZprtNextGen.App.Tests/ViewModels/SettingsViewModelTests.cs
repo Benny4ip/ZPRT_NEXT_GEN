@@ -181,10 +181,11 @@ public class SettingsViewModelTests
     [Fact]
     public void Constructor_ReadsAutostartOnce()
     {
-        var autostart = new FakeAutostart();
-        _ = CreateSut(isPortable: false, autostart: autostart);
+        var autostart = new FakeAutostart { Enabled = true };
+        var vm = CreateSut(isPortable: false, autostart: autostart);
 
         Assert.Equal(1, autostart.IsEnabledCalls);
+        Assert.True(vm.IsAutostartEnabled);
     }
 
     [Fact]

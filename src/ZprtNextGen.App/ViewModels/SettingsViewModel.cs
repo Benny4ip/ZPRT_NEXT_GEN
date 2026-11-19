@@ -460,7 +460,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ICommand RestartConnectionCommand => _restartConnectionCommand;
 
-    /// <summary>Прочитать настройки заново (после миграции/внешнего изменения).</summary>
+    /// <summary>Перечитать настройки после миграции/внешнего изменения файла.
+    /// Автозапуск здесь не перечитывается: он читается один раз при создании модели.</summary>
     public void Reload()
     {
         _config = _coordinator.Config ?? _config;
