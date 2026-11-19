@@ -84,6 +84,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly AsyncRelayCommand _fullDiscordResetCommand;
     private readonly RelayCommand _openLogsCommand;
     private readonly AsyncRelayCommand _restartConnectionCommand;
+    private readonly RelayCommand _openAboutCommand;
 
     private AppConfig _config;
     private PresetCatalog _catalog;
@@ -111,6 +112,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private IReadOnlyList<ConnectivityRowViewModel> _connectivityRows = [];
     private bool _isFixingDiscord;
     private string _discordStatus = string.Empty;
+    private SettingsSection _selectedSection = SettingsSection.Main;
 
     public SettingsViewModel(SettingsDependencies dependencies)
     {
@@ -154,6 +156,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _fullDiscordResetCommand = new AsyncRelayCommand(async _ => await FullDiscordResetAsync(), () => !IsFixingDiscord);
         _openLogsCommand = new RelayCommand(_ => OpenLogs());
         _restartConnectionCommand = new AsyncRelayCommand(async _ => await RestartConnectionAsync(), () => !IsBusy);
+        _openAboutCommand = new RelayCommand(_ => AboutRequested?.Invoke(this, EventArgs.Empty));
 
         LoadFromConfig();
         RefreshPresets();
@@ -167,6 +170,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     /// <summary>Пользовательская ошибка (показывается в окне настроек).</summary>
     public event EventHandler<string>? ErrorRaised;
+
+    /// <summary>Пользователь нажал «О программе».</summary>
+    public event EventHandler? AboutRequested;
 
     public string AppVersion { get; }
 
@@ -459,6 +465,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public ICommand OpenLogsCommand => _openLogsCommand;
 
     public ICommand RestartConnectionCommand => _restartConnectionCommand;
+
+    public SettingsSection SelectedSection
+    {
+        get => _selectedSection;
+        set => SetField(ref _selectedSection, value);
+    }
+
+    public ICommand OpenAboutCommand => _openAboutCommand;
 
     /// <summary>Перечитать настройки после миграции/внешнего изменения файла.
     /// Автозапуск здесь не перечитывается: он читается один раз при создании модели.</summary>

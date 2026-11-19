@@ -199,6 +199,36 @@ public class SettingsViewModelTests
         Assert.Equal(1, autostart.IsEnabledCalls);
     }
 
+    [Fact]
+    public void SelectedSection_DefaultsToMain()
+    {
+        var vm = CreateSut(isPortable: false);
+
+        Assert.Equal(SettingsSection.Main, vm.SelectedSection);
+    }
+
+    [Fact]
+    public void SelectedSection_CanBeChanged()
+    {
+        var vm = CreateSut(isPortable: false);
+
+        vm.SelectedSection = SettingsSection.Diagnostics;
+
+        Assert.Equal(SettingsSection.Diagnostics, vm.SelectedSection);
+    }
+
+    [Fact]
+    public void OpenAboutCommand_RaisesAboutRequested()
+    {
+        var vm = CreateSut(isPortable: false);
+        var raised = false;
+        vm.AboutRequested += (_, _) => raised = true;
+
+        vm.OpenAboutCommand.Execute(null);
+
+        Assert.True(raised);
+    }
+
     private static async Task WaitForAsync(AsyncRelayCommand command)
     {
         for (var attempt = 0; attempt < 400 && command.IsRunning; attempt++)

@@ -19,6 +19,7 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.ErrorRaised += OnErrorRaised;
+        _viewModel.AboutRequested += OnAboutRequested;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -120,6 +121,12 @@ public partial class SettingsWindow : Window
     }
 
     private void OnAbout(object sender, RoutedEventArgs e)
+    {
+        var window = new AboutWindow(_viewModel.EngineVersion) { Owner = this };
+        window.ShowDialog();
+    }
+
+    private void OnAboutRequested(object? sender, EventArgs e)
     {
         var window = new AboutWindow(_viewModel.EngineVersion) { Owner = this };
         window.ShowDialog();
