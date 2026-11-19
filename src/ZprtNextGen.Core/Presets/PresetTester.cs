@@ -55,12 +55,41 @@ public sealed class PresetTester : IPresetTester
     private readonly IEngineProcessManager _engine;
     private readonly IConnectivityService _connectivity;
     private readonly TimeSpan _startupDelay;
+    private readonly TimeSpan _pollInterval;
+    private readonly TimeSpan _settleDelay;
 
-    public PresetTester(IEngineProcessManager engine, IConnectivityService connectivity, TimeSpan? startupDelay = null)
+    public PresetTester(
+        IEngineProcessManager engine,
+        IConnectivityService connectivity,
+        TimeSpan? startupDelay = null,
+        TimeSpan? pollInterval = null,
+        TimeSpan? settleDelay = null)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         _connectivity = connectivity ?? throw new ArgumentNullException(nameof(connectivity));
         _startupDelay = startupDelay ?? TimeSpan.FromSeconds(2);
+        _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(200);
+        _settleDelay = settleDelay ?? TimeSpan.FromMilliseconds(300);
+    }
+
+    private async Task WaitForEngineRunningAsync(CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow + _startupDelay;
+
+        while (_engine.Status != EngineStatus.Running)
+        {
+            // Процесс уже упал — ждать предел бессмысленно.
+            if (_engine.Status is EngineStatus.Stopped or EngineStatus.Error)
+                return;
+
+            if (DateTime.UtcNow >= deadline)
+                return;
+
+            await Task.Delay(_pollInterval, ct);
+        }
+
+        // Дать winws стабилизироваться после Running.
+        await Task.Delay(_settleDelay, ct);
     }
 
     public async Task<IReadOnlyList<PresetTestResult>> TestAllAsync(IReadOnlyList<Preset> presets, string engineRoot,
@@ -94,7 +123,7 @@ public sealed class PresetTester : IPresetTester
                 var arguments = PresetArgumentBuilder.Build(preset, engineRoot, filter);
                 await _engine.StartAsync(Path.Combine(bin, "winws.exe"), arguments, bin, ct);
 
-                await Task.Delay(_startupDelay, ct);
+                await WaitForEngineRunningAsync(ct);
 
                 if (_engine.Status != EngineStatus.Running)
                 {

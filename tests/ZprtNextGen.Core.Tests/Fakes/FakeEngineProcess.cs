@@ -8,6 +8,7 @@ namespace ZprtNextGen.Core.Tests.Fakes;
 public sealed class FakeEngineProcess : IEngineProcessManager
 {
     public EngineStatus Status { get; set; } = EngineStatus.Stopped;
+    public EngineStatus StatusAfterStart { get; set; } = EngineStatus.Running;
     public int? OwnedProcessId => null;
     public event System.EventHandler<EngineStatusChangedEventArgs> StatusChanged = delegate { };
     public event System.EventHandler<string> OutputReceived = delegate { };
@@ -26,7 +27,7 @@ public sealed class FakeEngineProcess : IEngineProcessManager
             ThrowStartsRemaining--;
             throw StartException!;
         }
-        Status = EngineStatus.Running;
+        Status = StatusAfterStart;
         return Task.CompletedTask;
     }
 
