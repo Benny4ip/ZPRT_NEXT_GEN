@@ -201,7 +201,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         get => _isAutoMode;
         set
         {
-            if (!SetField(ref _isAutoMode, value) || _initializing)
+            if (!SetField(ref _isAutoMode, value))
+                return;
+
+            OnPropertyChanged(nameof(IsManualMode));
+
+            if (_initializing)
                 return;
 
             _config = _config with
@@ -214,6 +219,17 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             SaveAndApply();
             OnPropertyChanged(nameof(AutoModeHint));
             MarkNeedsRestart();
+        }
+    }
+
+    /// <summary>Ручной режим (для плиток «Авто» / «Ручной»).</summary>
+    public bool IsManualMode
+    {
+        get => !_isAutoMode;
+        set
+        {
+            if (value)
+                IsAutoMode = false;
         }
     }
 

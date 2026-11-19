@@ -179,6 +179,19 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public void IsManualMode_ReflectsAutoMode()
+    {
+        var vm = CreateSut(isPortable: false);
+
+        vm.IsAutoMode = true;
+        Assert.False(vm.IsManualMode);
+
+        vm.IsManualMode = true;
+        Assert.False(vm.IsAutoMode);
+        Assert.True(vm.IsManualMode);
+    }
+
+    [Fact]
     public void Constructor_ReadsAutostartOnce()
     {
         var autostart = new FakeAutostart { Enabled = true };
