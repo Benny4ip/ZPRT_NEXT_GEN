@@ -780,6 +780,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _initializing = false;
 
         OnPropertyChanged(nameof(SelectedManualPreset));
+        OnPropertyChanged(nameof(AutoModeHint));
         SaveAndApply();
         MarkNeedsRestart();
         PresetTestStatus = $"Выбран обход: {preset.Name}. Перезапусти обход, чтобы применить.";
@@ -824,6 +825,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         SaveAndApply();
         OnPropertyChanged(nameof(CurrentProfileText));
+        OnPropertyChanged(nameof(AutoModeHint));
         MarkNeedsRestart();
         PresetTestStatus = $"«{preset.Name}» сохранён как автоматический профиль.";
     }

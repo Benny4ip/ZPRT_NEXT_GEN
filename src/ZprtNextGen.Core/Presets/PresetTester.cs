@@ -42,7 +42,7 @@ public record PresetTestResult(
 /// <summary>Прогресс прогона всех пресетов.</summary>
 public record PresetTestProgress(int Index, int Total, Preset Preset, PresetTestResult? Result);
 
-/// <summary>Проверка всех пресетов последовательно: старт → пауза → проверка связи → остановка.</summary>
+/// <summary>Проверка всех пресетов последовательно: старт → ожидание готовности движка → проверка связи → остановка.</summary>
 public interface IPresetTester
 {
     Task<IReadOnlyList<PresetTestResult>> TestAllAsync(IReadOnlyList<Preset> presets, string engineRoot,

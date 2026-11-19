@@ -120,10 +120,11 @@ public partial class App : Application
         byte[] embeddedEngine,
         string version)
     {
-        StartupWindow? splash = options.StartInTray ? null : new StartupWindow();
+        StartupWindow? splash = null;
 
         try
         {
+            splash = options.StartInTray ? null : new StartupWindow();
             splash?.Show();
             var installer = new PortableEngineInstaller(embeddedEngine, version, logger: logger);
             var portableEngine = await installer.InstallAsync(CancellationToken.None);
@@ -137,14 +138,17 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            splash?.Close();
             logger.Error("Не удалось запустить приложение: " + ex, ex);
+            // Сначала показываем сообщение, потом закрываем splash: при
+            // ShutdownMode=OnLastWindowClose закрытие окна раньше диалога
+            // могло бы завершить процесс без сообщения.
             MessageBox.Show(
                 "Не удалось запустить ZPRT NEXT GEN:\n" + ex.Message +
                 $"\n\nПодробности в журнале:\n{logsDirectory}",
                 "ZPRT NEXT GEN",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+            splash?.Close();
             Shutdown(1);
         }
     }

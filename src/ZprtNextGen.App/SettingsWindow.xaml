@@ -149,10 +149,8 @@
 
         <ListBox Grid.Row="1"
                  Style="{StaticResource SettingsNavList}"
-                 ItemContainerStyle="{StaticResource SettingsNavItem}"
                  SelectedValue="{Binding SelectedSection, Mode=TwoWay}"
-                 SelectedValuePath="Tag"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                 SelectedValuePath="Tag">
           <ListBoxItem Content="Основное" Tag="{x:Static vm:SettingsSection.Main}" />
           <ListBoxItem Content="Пресеты" Tag="{x:Static vm:SettingsSection.Presets}" />
           <ListBoxItem Content="Запуск и трей" Tag="{x:Static vm:SettingsSection.Startup}" />
