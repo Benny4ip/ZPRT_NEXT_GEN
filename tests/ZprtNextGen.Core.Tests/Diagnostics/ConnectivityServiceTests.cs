@@ -250,7 +250,9 @@ public class ConnectivityServiceTests
 
         Assert.True(report.BothOk);
         Assert.Equal(6, handler.Starts.Count);
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1), $"expected under 1 s, took {sw.Elapsed}");
+        // 6×300ms sequential ≈ 1.8s; parallel ≈ 300ms + overhead. 1.5s stays under sequential
+        // but tolerates slow CI runners (1.0s flaked at 1.06s on GitHub Actions).
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1.5), $"expected under 1.5 s, took {sw.Elapsed}");
     }
 
     [Fact]
