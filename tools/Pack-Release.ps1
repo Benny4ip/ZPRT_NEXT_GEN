@@ -15,6 +15,10 @@
     Итоговый архив (по умолчанию publish\ZPRT_NEXT_GEN-win-x64.zip).
 .PARAMETER Version
     Версия релиза (по умолчанию 0.1.0; пишется в staging\VERSION.txt).
+.PARAMETER Sign
+    Подписать ZprtNextGen.exe через signtool (нужны ZPRT_CERT_PFX и ZPRT_CERT_PASSWORD).
+.PARAMETER SignTool
+    Путь к signtool.exe (если не в PATH).
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -24,7 +28,11 @@ param(
 
     [string] $OutputZip = "publish\ZPRT_NEXT_GEN-win-x64.zip",
 
-    [string] $Version = "1.1.0"
+    [string] $Version = "1.1.0",
+
+    [switch] $Sign,
+
+    [string] $SignTool = "signtool"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -140,6 +148,31 @@ if (Test-Path -Path $licensesDir -PathType Container)
 # 6. Файл версии
 # ---------------------------------------------------------------------------
 Set-Content -Path (Join-Path $staging 'VERSION.txt') -Value $Version -Encoding UTF8
+
+# ---------------------------------------------------------------------------
+# 6b. Опциональная Authenticode-подпись оболочки
+# ---------------------------------------------------------------------------
+if ($Sign)
+{
+    $pfx = $env:ZPRT_CERT_PFX
+    $pwd = $env:ZPRT_CERT_PASSWORD
+    if ([string]::IsNullOrWhiteSpace($pfx) -or -not (Test-Path -Path $pfx -PathType Leaf))
+    {
+        throw "Параметр -Sign задан, но ZPRT_CERT_PFX не указывает на существующий PFX."
+    }
+    if ($null -eq $pwd)
+    {
+        throw "Параметр -Sign задан, но переменная ZPRT_CERT_PASSWORD не задана."
+    }
+
+    $exeToSign = Join-Path $staging 'ZprtNextGen.exe'
+    Write-Host "Подпись: $exeToSign"
+    & $SignTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $pfx /p $pwd $exeToSign
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "signtool завершился с кодом $LASTEXITCODE"
+    }
+}
 
 # ---------------------------------------------------------------------------
 # 7. Финальная проверка обязательных файлов в staging

@@ -1,10 +1,15 @@
 # ZPRT_NEXT_GEN
 
 [![Build](https://github.com/Benny4ip/ZPRT_NEXT_GEN/actions/workflows/build.yml/badge.svg)](https://github.com/Benny4ip/ZPRT_NEXT_GEN/actions/workflows/build.yml)
+[![Pages](https://img.shields.io/badge/site-GitHub%20Pages-e01b2e)](https://benny4ip.github.io/ZPRT_NEXT_GEN/)
 
 Русскоязычная графическая оболочка для управления `winws.exe` из
 [`Flowseal/zapret-discord-youtube`](https://github.com/Flowseal/zapret-discord-youtube):
 пресеты, статус подключения, проверка связи и наглядный индикатор состояния при подключении.
+
+**Скачать:** [Releases](https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest) ·
+**Сайт:** [benny4ip.github.io/ZPRT_NEXT_GEN](https://benny4ip.github.io/ZPRT_NEXT_GEN/) ·
+**FAQ:** [docs/FAQ.md](docs/FAQ.md)
 
 > Релиз собирается вручную (`workflow_dispatch`); автоматических релизов нет.
 
@@ -36,11 +41,14 @@ ZPRT_NEXT_GEN — WPF-оболочка вокруг `winws.exe` (движок о
 
 ## Быстрый старт
 
-1. Скачайте последний zip-архив релиза (`ZPRT_NEXT_GEN-<version>-win-x64.zip`).
+1. Скачайте последний релиз: **standard** zip или **portable** exe/zip с
+   [Releases](https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest).
 2. Распакуйте архив в любую папку (путь может содержать пробелы и кириллицу).
 3. Запустите `ZprtNextGen.exe` от имени администратора (первый запуск запросит права через UAC).
-4. В окне приложения выберите пресет (по умолчанию «Основной») и нажмите «Включить».
-5. Движок `winws` стартует, анимация перейдёт в состояние Connected.
+4. Нажмите «Включить» — приложение подберёт пресет и проверит Discord / YouTube.
+5. Обновления: Настройки → Обновления (при старте придёт уведомление в трей, если вышла новая версия).
+
+Установка через менеджеры пакетов (манифесты в репозитории): см. [`packaging/README.md`](packaging/README.md).
 
 ## Выбор пресета
 
@@ -59,6 +67,9 @@ ZPRT_NEXT_GEN — WPF-оболочка вокруг `winws.exe` (движок о
 ## Предупреждение об антивирусе и WinDivert
 
 Движок использует WinDivert (`WinDivert.dll` / `WinDivert64.sys`) для перехвата трафика, поэтому некоторый антивирус может сработать на `winws.exe` или на самозаверяющий драйвер — это ложное срабатывание, характерное для инструментов сетевого перехвата. Добавьте папку с приложением в исключения антивируса, если проверка не проходит. Для работы требуются права администратора.
+
+Подпись релизов и работа с AV: [`docs/CODE_SIGNING.md`](docs/CODE_SIGNING.md).
+Тексты для анонсов: [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md).
 
 ## Как собрать
 
@@ -87,9 +98,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\Pack-Release.ps1 -Engi
 
 ```
 ZPRT_NEXT_GEN/
-├── .github/workflows/      # CI: build (push/PR), release (workflow_dispatch, вручную)
+├── .github/workflows/      # CI: build, release, pages
+├── site/                   # лендинг GitHub Pages
+├── packaging/              # манифесты winget / scoop
 ├── assets/                 # иконка приложения (icon.ico, icon.svg)
-├── docs/                   # CODE_MAP.md (архитектура), screenshot.png
+├── docs/                   # FAQ, DISTRIBUTION, CODE_SIGNING, CODE_MAP, screenshot
 ├── licenses/               # лицензии сторонних компонентов
 ├── presets/                # presets.json — каталог пресетов winws
 ├── src/
@@ -97,7 +110,7 @@ ZPRT_NEXT_GEN/
 │   └── ZprtNextGen.Core/   # ядро: пресеты, движок, сеть, настройки, автозапуск
 ├── tests/                  # юнит-тесты (xUnit)
 ├── tools/
-│   ├── Pack-Release.ps1    # упаковка релиза (PowerShell 5.1, UTF-8 с BOM)
+│   ├── Pack-Release.ps1    # упаковка релиза (+ опциональный -Sign)
 │   ├── Import-Presets.ps1  # импорт пресетов из zapret
 │   ├── Index-Code.ps1      # индекс типов и XAML-ключей → .ai/code-index.md
 │   └── ZprtNextGen.PresetTool/   # CLI-инструмент сборки presets.json

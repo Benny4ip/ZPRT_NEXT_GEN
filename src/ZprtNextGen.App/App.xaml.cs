@@ -43,6 +43,7 @@ public partial class App : Application
     private EventWaitHandle? _showSignal;
     private Thread? _showSignalThread;
     private IAppLogger? _logger;
+    private string _appVersion = "0.0.0";
     private bool _shuttingDown;
     private bool _isHandlingException;
 
@@ -81,6 +82,7 @@ public partial class App : Application
         InstallGlobalExceptionHandlers(logger, logsDirectory);
 
         var version = typeof(App).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+        _appVersion = version;
         var embeddedEngine = PortableEngineInstaller.ReadEmbeddedEngine(typeof(App).Assembly);
         var isPortable = embeddedEngine is { Length: > 0 };
 
@@ -326,6 +328,9 @@ public partial class App : Application
                 _healthMonitor.Start();
             }
 
+            // Тихая проверка новой версии оболочки (без автоустановки).
+            _ = NotifyAppUpdateIfAvailableAsync(logger);
+
             if (options.AutoConnect)
             {
                 var usesSavedProfile = config.Connection.Mode == ConnectionMode.Manual
@@ -353,6 +358,33 @@ public partial class App : Application
         catch (Exception ex)
         {
             logger.Error("Инициализация подключения: " + ex.Message, ex);
+        }
+    }
+
+    /// <summary>Проверить GitHub Releases и показать balloon, если доступна новая версия оболочки.</summary>
+    private async Task NotifyAppUpdateIfAvailableAsync(IAppLogger logger)
+    {
+        try
+        {
+            var client = GitHubReleaseClient.CreateDefault();
+            var latest = await client.GetLatestAsync("Benny4ip/ZPRT_NEXT_GEN", CancellationToken.None);
+            if (latest is null)
+                return;
+
+            if (!VersionComparer.IsNewer(latest.Tag, _appVersion))
+                return;
+
+            var tag = latest.Tag.StartsWith('v') ? latest.Tag : "v" + latest.Tag;
+            logger.Info($"Доступна новая версия оболочки {tag} (установлена v{_appVersion}).");
+            _tray?.ShowBalloon(
+                "ZPRT NEXT GEN",
+                $"Доступна {tag}. Обновите в Настройки → Обновления.");
+            _settings?.SetUpdateStatus(
+                $"Доступна версия программы {latest.Tag} (установлена v{_appVersion}).");
+        }
+        catch (Exception ex)
+        {
+            logger.Error("Проверка обновления программы при старте: " + ex.Message, ex);
         }
     }
 

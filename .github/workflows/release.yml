@@ -48,6 +48,8 @@ jobs:
           New-Item -ItemType Directory -Path engine -Force | Out-Null
           Copy-Item -Path (Join-Path $engineRoot '*') -Destination engine -Recurse -Force
 
+      # Подпись (опционально): задайте secrets ZPRT_CERT_PFX_B64 + ZPRT_CERT_PASSWORD
+      # и вызовите Pack-Release.ps1 с -Sign. См. docs/CODE_SIGNING.md.
       - name: Pack release
         shell: pwsh
         run: |
