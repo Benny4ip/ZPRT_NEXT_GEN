@@ -378,6 +378,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         private set => SetField(ref _updateStatusText, value);
     }
 
+    /// <summary>Показать статус обновления с UI-потока или при тихой проверке на старте.</summary>
+    public void SetUpdateStatus(string text) =>
+        _dispatcher.Post(() => UpdateStatusText = text ?? string.Empty);
+
     public double UpdateProgress
     {
         get => _updateProgress;

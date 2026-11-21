@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: Benny4ip.ZPRTNextGen
+PackageVersion: 1.1.0
+PackageLocale: ru-RU
+Publisher: Benny4ip
+PublisherUrl: https://github.com/Benny4ip
+PublisherSupportUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN/issues
+Author: Benny4ip
+PackageName: ZPRT NEXT GEN
+PackageUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN
+License: MIT
+LicenseUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN/blob/main/LICENSE
+Copyright: Copyright (c) 2026 Benny4ip
+ShortDescription: Графическая оболочка для winws / zapret на Windows
+Description: |-
+  Русскоязычная WPF-оболочка для управления winws.exe из проекта zapret-discord-youtube.
+  Пресеты, статус подключения, проверка Discord/YouTube, трей и автозапуск.
+  Требуются права администратора (WinDivert).
+Moniker: zprt
+Tags:
+  - dpi
+  - zapret
+  - windows
+  - wpf
+  - discord
+  - youtube
+ReleaseNotesUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/tag/v1.1.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0
