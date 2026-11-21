@@ -116,25 +116,25 @@ public class ConnectivityServiceTests
     }
 
     [Fact]
-    public async Task Report_LatencyIsMinPerService_ScoreIsMax()
+    public void Report_LatencyIsMinPerService_ScoreIsMax()
     {
-        var handler = new FakeHandler();
-        handler.Add("www.youtube.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(120));
-        handler.Add("redirector.googlevideo.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(80));
-        handler.Add("i.ytimg.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(10));
-        handler.Add("discord.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(150));
-        handler.Add("gateway.discord.gg", HttpStatusCode.OK, TimeSpan.FromMilliseconds(95));
-        handler.Add("cdn.discordapp.com", HttpStatusCode.OK, TimeSpan.FromMilliseconds(1));
-
-        var report = await CreateService(handler).CheckAsync(CancellationToken.None);
+        // Pure report math — no Task.Delay / wall-clock (InRange flaked on CI at 1093 ms).
+        var t = ConnectivityService.DefaultTargets;
+        var report = new ConnectivityReport(
+        [
+            new(t[0], true, 120, null), // youtube primary
+            new(t[1], true, 80, null),  // youtube-cdn primary → min YouTube
+            new(t[2], true, 10, null),  // youtube-img secondary (ignored)
+            new(t[3], true, 150, null), // discord-api primary
+            new(t[4], true, 95, null),  // discord-gateway primary → min Discord
+            new(t[5], true, 1, null),   // discord-cdn secondary (ignored)
+        ]);
 
         Assert.True(report.YouTubeOk);
         Assert.True(report.DiscordOk);
-        Assert.InRange(report.YouTubeLatencyMs!.Value, 60, 250);
-        Assert.InRange(report.DiscordLatencyMs!.Value, 80, 300);
-        Assert.Equal(
-            Math.Max(report.YouTubeLatencyMs.Value, report.DiscordLatencyMs.Value),
-            report.ScoreMs);
+        Assert.Equal(80, report.YouTubeLatencyMs);
+        Assert.Equal(95, report.DiscordLatencyMs);
+        Assert.Equal(95, report.ScoreMs);
     }
 
     [Fact]
