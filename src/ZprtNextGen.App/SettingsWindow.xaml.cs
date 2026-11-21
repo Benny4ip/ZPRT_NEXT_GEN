@@ -19,6 +19,7 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.ErrorRaised += OnErrorRaised;
+        _viewModel.AboutRequested += OnAboutRequested;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -119,11 +120,20 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnAbout(object sender, RoutedEventArgs e)
+    private void OnAboutRequested(object? sender, EventArgs e)
     {
         var window = new AboutWindow(_viewModel.EngineVersion) { Owner = this };
         window.ShowDialog();
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
+
+    protected override void OnClosed(EventArgs e)
+    {
+        // Модель живёт дольше окна: отписываемся, иначе каждый повторный заход
+        // в настройки добавлял бы ещё один обработчик.
+        _viewModel.AboutRequested -= OnAboutRequested;
+        _viewModel.ErrorRaised -= OnErrorRaised;
+        base.OnClosed(e);
+    }
 }

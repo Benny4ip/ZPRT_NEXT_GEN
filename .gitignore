@@ -4,8 +4,8 @@ obj/
 publish/
 .vs/
 
-# Local engine binaries (zapret / winws / WinDivert)
-engine/
+# Local engine binaries (zapret / winws / WinDivert) — only the repo-root copy
+/engine/
 
 # Binaries and archives
 *.exe

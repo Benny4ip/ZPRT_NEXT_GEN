@@ -33,7 +33,8 @@ public class SettingsViewModelTests
     private static SettingsViewModel CreateSut(
         bool isPortable,
         FakeGitHubReleaseClient? gitHub = null,
-        string? tempDir = null)
+        string? tempDir = null,
+        FakeAutostart? autostart = null)
     {
         tempDir ??= Path.Combine(Path.GetTempPath(), "ZprtNextGen.App.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
@@ -62,7 +63,7 @@ public class SettingsViewModelTests
             Catalog(),
             engineProcess,
             connectivity,
-            new FakeAutostart(),
+            autostart ?? new FakeAutostart(),
             new FakeDiscordFixService(),
             new FakePresetTester(),
             gitHub ?? new FakeGitHubReleaseClient(),
@@ -126,6 +127,134 @@ public class SettingsViewModelTests
 
         Assert.Contains("Flowseal/zapret-discord-youtube", gitHub.RequestedRepos);
         Assert.Contains("Benny4ip/ZPRT_NEXT_GEN", gitHub.RequestedRepos);
+    }
+
+    [Fact]
+    public void DetailedGameFilter_WhenProfileDisabled_ReportsDisabled()
+    {
+        var vm = CreateSut(isPortable: false);
+        vm.GameFilter = GameFilterMode.All;
+        vm.IsGameProfileEnabled = false;
+
+        Assert.Equal(GameFilterMode.Disabled, vm.DetailedGameFilter);
+    }
+
+    [Fact]
+    public void DetailedGameFilter_SetDisabled_DisablesActualFilter()
+    {
+        var vm = CreateSut(isPortable: false);
+        vm.GameFilter = GameFilterMode.Tcp;
+
+        vm.DetailedGameFilter = GameFilterMode.Disabled;
+
+        Assert.Equal(GameFilterMode.Disabled, vm.GameFilter);
+        Assert.False(vm.IsGameProfileEnabled);
+        Assert.Equal(GameFilterMode.Disabled, vm.DetailedGameFilter);
+    }
+
+    [Fact]
+    public void DetailedGameFilter_SetDisabled_PersistsDisabled()
+    {
+        var tempDir = Path.Combine(
+            Path.GetTempPath(), "ZprtNextGen.App.Tests", Guid.NewGuid().ToString("N"));
+        var vm = CreateSut(isPortable: false, tempDir: tempDir);
+        vm.GameFilter = GameFilterMode.Tcp;
+
+        vm.DetailedGameFilter = GameFilterMode.Disabled;
+
+        var saved = new ConfigStore(Path.Combine(tempDir, "config.json")).Load();
+        Assert.Equal(GameFilterMode.Disabled, saved.GameFilter);
+    }
+
+    [Fact]
+    public void DetailedGameFilter_SetTcp_KeepsProfileOff()
+    {
+        var vm = CreateSut(isPortable: false);
+        vm.GameFilter = GameFilterMode.All;
+
+        vm.DetailedGameFilter = GameFilterMode.Tcp;
+
+        Assert.Equal(GameFilterMode.Tcp, vm.GameFilter);
+        Assert.False(vm.IsGameProfileEnabled);
+    }
+
+    [Fact]
+    public void IsManualMode_ReflectsAutoMode()
+    {
+        var vm = CreateSut(isPortable: false);
+        vm.IsAutoMode = false;
+        var manualNotified = false;
+        vm.PropertyChanged += (_, args) =>
+            manualNotified |= args.PropertyName == nameof(SettingsViewModel.IsManualMode);
+
+        vm.IsAutoMode = true;
+        Assert.False(vm.IsManualMode);
+        Assert.True(manualNotified);
+
+        vm.IsManualMode = true;
+        Assert.False(vm.IsAutoMode);
+        Assert.True(vm.IsManualMode);
+    }
+
+    [Fact]
+    public void Constructor_ReadsAutostartOnce()
+    {
+        var autostart = new FakeAutostart { Enabled = true };
+        var vm = CreateSut(isPortable: false, autostart: autostart);
+
+        Assert.Equal(1, autostart.IsEnabledCalls);
+        Assert.True(vm.IsAutostartEnabled);
+    }
+
+    [Fact]
+    public void Reload_DoesNotReadAutostartAgain()
+    {
+        var autostart = new FakeAutostart();
+        var vm = CreateSut(isPortable: false, autostart: autostart);
+
+        vm.Reload();
+
+        Assert.Equal(1, autostart.IsEnabledCalls);
+    }
+
+    [Fact]
+    public void SelectedSection_DefaultsToMain()
+    {
+        var vm = CreateSut(isPortable: false);
+
+        Assert.Equal(SettingsSection.Main, vm.SelectedSection);
+    }
+
+    [Fact]
+    public void SelectedSection_CanBeChanged()
+    {
+        var vm = CreateSut(isPortable: false);
+        var notified = false;
+        vm.PropertyChanged += (_, args) =>
+            notified |= args.PropertyName == nameof(SettingsViewModel.SelectedSection);
+
+        vm.SelectedSection = SettingsSection.Diagnostics;
+
+        Assert.Equal(SettingsSection.Diagnostics, vm.SelectedSection);
+        Assert.True(notified);
+    }
+
+    [Fact]
+    public void OpenAboutCommand_RaisesAboutRequested()
+    {
+        var vm = CreateSut(isPortable: false);
+        object? sender = null;
+        var raised = 0;
+        vm.AboutRequested += (s, _) =>
+        {
+            sender = s;
+            raised++;
+        };
+
+        vm.OpenAboutCommand.Execute(null);
+
+        Assert.Equal(1, raised);
+        Assert.Same(vm, sender);
     }
 
     private static async Task WaitForAsync(AsyncRelayCommand command)

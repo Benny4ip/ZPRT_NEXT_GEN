@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ZprtNextGen.Core.Diagnostics;
 using ZprtNextGen.Core.Presets;
 using ZprtNextGen.Core.Process;
@@ -18,7 +19,7 @@ public class PresetTesterTests
     {
         var engine = new FakeEngineProcess();
         var connectivity = new FakeConnectivity();
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
 
         var results = await sut.TestAllAsync(Presets, @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
 
@@ -38,7 +39,7 @@ public class PresetTesterTests
     {
         var engine = new FakeEngineProcess { ThrowStartsRemaining = 1 };
         var connectivity = new FakeConnectivity();
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
 
         var results = await sut.TestAllAsync(Presets, @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
 
@@ -55,7 +56,7 @@ public class PresetTesterTests
     {
         var engine = new FakeEngineProcess();
         var connectivity = new FakeConnectivity { Report = new ConnectivityReport(Array.Empty<ConnectivityResult>()) };
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
 
         var results = await sut.TestAllAsync(Presets, @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
 
@@ -68,7 +69,7 @@ public class PresetTesterTests
     {
         var engine = new FakeEngineProcess();
         var connectivity = new FakeConnectivity();
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -84,7 +85,7 @@ public class PresetTesterTests
     {
         var engine = new FakeEngineProcess { ForeignRunning = true };
         var connectivity = new FakeConnectivity();
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
 
         var results = await sut.TestAllAsync(Presets, @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
 
@@ -114,7 +115,7 @@ public class PresetTesterTests
                     true, 84, null),
             ])
         };
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
 
         var results = await sut.TestAllAsync(
             [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
@@ -145,7 +146,7 @@ public class PresetTesterTests
                     false, 5000, "timeout", TimedOut: true),
             ])
         };
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
 
         var results = await sut.TestAllAsync(
             [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
@@ -172,7 +173,7 @@ public class PresetTesterTests
                     false, 5000, "Превышено время ожидания", TimedOut: true),
             ])
         };
-        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10));
+        var sut = new PresetTester(engine, connectivity, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(10));
 
         var results = await sut.TestAllAsync(
             [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
@@ -194,5 +195,47 @@ public class PresetTesterTests
         var fail = new PresetTestResult("p2", "Пресет 2", false, null, "таймаут");
         Assert.Equal("Ошибка: таймаут", fail.StatusText);
         Assert.Equal("—", fail.LatencyText);
+    }
+
+    [Fact]
+    public async Task TestAllAsync_AdaptiveWait_DoesNotWaitFullStartupDelay()
+    {
+        var engine = new FakeEngineProcess();
+        var connectivity = new FakeConnectivity();
+        var sut = new PresetTester(
+            engine, connectivity,
+            startupDelay: TimeSpan.FromSeconds(5),
+            pollInterval: TimeSpan.FromMilliseconds(10),
+            settleDelay: TimeSpan.FromMilliseconds(10));
+
+        var stopwatch = Stopwatch.StartNew();
+        var results = await sut.TestAllAsync(
+            [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
+        stopwatch.Stop();
+
+        Assert.True(results[0].Success);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2), $"заняло {stopwatch.Elapsed}");
+    }
+
+    [Fact]
+    public async Task TestAllAsync_EngineDiesAfterStart_FailsWithoutWaitingFullDelay()
+    {
+        var engine = new FakeEngineProcess { StatusAfterStart = EngineStatus.Stopped };
+        var connectivity = new FakeConnectivity();
+        var sut = new PresetTester(
+            engine, connectivity,
+            startupDelay: TimeSpan.FromSeconds(5),
+            pollInterval: TimeSpan.FromMilliseconds(10),
+            settleDelay: TimeSpan.FromMilliseconds(10));
+
+        var stopwatch = Stopwatch.StartNew();
+        var results = await sut.TestAllAsync(
+            [Presets[0]], @"C:\E", GameFilterMode.Disabled, null, CancellationToken.None);
+        stopwatch.Stop();
+
+        Assert.False(results[0].Success);
+        Assert.Contains("завершился", results[0].Detail);
+        Assert.Equal(0, connectivity.CheckCalls);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2), $"заняло {stopwatch.Elapsed}");
     }
 }

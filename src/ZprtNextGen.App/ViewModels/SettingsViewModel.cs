@@ -84,10 +84,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly AsyncRelayCommand _fullDiscordResetCommand;
     private readonly RelayCommand _openLogsCommand;
     private readonly AsyncRelayCommand _restartConnectionCommand;
+    private readonly RelayCommand _openAboutCommand;
 
     private AppConfig _config;
     private PresetCatalog _catalog;
-    private GameFilterMode _lastDetailedFilter = GameFilterMode.Disabled;
     private bool _initializing;
     private bool _isAutoMode;
     private Preset? _selectedManualPreset;
@@ -112,6 +112,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private IReadOnlyList<ConnectivityRowViewModel> _connectivityRows = [];
     private bool _isFixingDiscord;
     private string _discordStatus = string.Empty;
+    private SettingsSection _selectedSection = SettingsSection.Main;
 
     public SettingsViewModel(SettingsDependencies dependencies)
     {
@@ -155,9 +156,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _fullDiscordResetCommand = new AsyncRelayCommand(async _ => await FullDiscordResetAsync(), () => !IsFixingDiscord);
         _openLogsCommand = new RelayCommand(_ => OpenLogs());
         _restartConnectionCommand = new AsyncRelayCommand(async _ => await RestartConnectionAsync(), () => !IsBusy);
+        _openAboutCommand = new RelayCommand(_ => AboutRequested?.Invoke(this, EventArgs.Empty));
 
         LoadFromConfig();
         RefreshPresets();
+        _ = RefreshAutostartAsync();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -167,6 +170,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     /// <summary>Пользовательская ошибка (показывается в окне настроек).</summary>
     public event EventHandler<string>? ErrorRaised;
+
+    /// <summary>Пользователь нажал «О программе».</summary>
+    public event EventHandler? AboutRequested;
 
     public string AppVersion { get; }
 
@@ -195,7 +201,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         get => _isAutoMode;
         set
         {
-            if (!SetField(ref _isAutoMode, value) || _initializing)
+            if (!SetField(ref _isAutoMode, value))
+                return;
+
+            OnPropertyChanged(nameof(IsManualMode));
+
+            if (_initializing)
                 return;
 
             _config = _config with
@@ -208,6 +219,17 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             SaveAndApply();
             OnPropertyChanged(nameof(AutoModeHint));
             MarkNeedsRestart();
+        }
+    }
+
+    /// <summary>Ручной режим (для плиток «Авто» / «Ручной»).</summary>
+    public bool IsManualMode
+    {
+        get => !_isAutoMode;
+        set
+        {
+            if (value)
+                IsAutoMode = false;
         }
     }
 
@@ -263,11 +285,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         get => _gameFilter;
         set
         {
-            if (!SetField(ref _gameFilter, value) || _initializing)
+            if (!SetField(ref _gameFilter, value))
                 return;
 
-            if (value is GameFilterMode.Tcp or GameFilterMode.Udp or GameFilterMode.All)
-                _lastDetailedFilter = value;
+            OnPropertyChanged(nameof(DetailedGameFilter));
+
+            if (_initializing)
+                return;
 
             _initializing = true;
             IsGameProfileEnabled = value == GameFilterMode.All;
@@ -282,15 +306,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>Тонкая настройка фильтра, когда игровой профиль выключен.</summary>
     public GameFilterMode DetailedGameFilter
     {
-        get => _lastDetailedFilter;
-        set
-        {
-            if (value == GameFilterMode.Disabled)
-                IsGameProfileEnabled = false;
-            else
-                GameFilter = value;
-            OnPropertyChanged();
-        }
+        get => _gameFilter;
+        set => GameFilter = value;
     }
 
     public string EnginePath
@@ -465,7 +482,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ICommand RestartConnectionCommand => _restartConnectionCommand;
 
-    /// <summary>Прочитать настройки заново (после миграции/внешнего изменения).</summary>
+    public SettingsSection SelectedSection
+    {
+        get => _selectedSection;
+        set => SetField(ref _selectedSection, value);
+    }
+
+    public ICommand OpenAboutCommand => _openAboutCommand;
+
+    /// <summary>Перечитать настройки после миграции/внешнего изменения файла.
+    /// Автозапуск здесь не перечитывается: он читается один раз при создании модели.</summary>
     public void Reload()
     {
         _config = _coordinator.Config ?? _config;
@@ -540,9 +566,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         {
             IsAutoMode = _config.Connection.Mode == ConnectionMode.Auto;
             GameFilter = _config.GameFilter;
-            _lastDetailedFilter = _config.GameFilter is GameFilterMode.Tcp or GameFilterMode.Udp or GameFilterMode.All
-                ? _config.GameFilter
-                : GameFilterMode.All;
             IsGameProfileEnabled = _config.GameFilter == GameFilterMode.All;
             MinimizeToTray = _config.Behavior.MinimizeToTray;
             ReduceMotion = _config.Behavior.ReduceMotion;
@@ -561,7 +584,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             _initializing = false;
         }
 
-        _ = RefreshAutostartAsync();
         OnPropertyChanged(nameof(CurrentProfileText));
         OnPropertyChanged(nameof(AutoModeHint));
     }
@@ -758,6 +780,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _initializing = false;
 
         OnPropertyChanged(nameof(SelectedManualPreset));
+        OnPropertyChanged(nameof(AutoModeHint));
         SaveAndApply();
         MarkNeedsRestart();
         PresetTestStatus = $"Выбран обход: {preset.Name}. Перезапусти обход, чтобы применить.";
@@ -802,6 +825,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         SaveAndApply();
         OnPropertyChanged(nameof(CurrentProfileText));
+        OnPropertyChanged(nameof(AutoModeHint));
         MarkNeedsRestart();
         PresetTestStatus = $"«{preset.Name}» сохранён как автоматический профиль.";
     }

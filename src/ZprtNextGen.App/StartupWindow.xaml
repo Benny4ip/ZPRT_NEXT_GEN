@@ -1,0 +1,22 @@
+<Window x:Class="ZprtNextGen.App.StartupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ZPRT NEXT GEN"
+        Width="380" Height="150"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="{StaticResource Brush.Background}"
+        Foreground="{StaticResource Brush.Text}">
+  <Border BorderBrush="{StaticResource Brush.Accent}" BorderThickness="1" Padding="24">
+    <StackPanel>
+      <TextBlock Text="ZPRT NEXT GEN" FontSize="18" FontWeight="Bold"
+                 Foreground="{StaticResource Brush.Text}" />
+      <TextBlock Text="Готовим движок…" Margin="0,8,0,0"
+                 Foreground="{StaticResource Brush.TextMuted}" />
+      <ProgressBar IsIndeterminate="True" Height="4" Margin="0,18,0,0" />
+    </StackPanel>
+  </Border>
+</Window>
