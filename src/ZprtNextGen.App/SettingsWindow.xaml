@@ -152,7 +152,8 @@
                  SelectedValue="{Binding SelectedSection, Mode=TwoWay}"
                  SelectedValuePath="Tag">
           <ListBoxItem Content="Основное" Tag="{x:Static vm:SettingsSection.Main}" />
-          <ListBoxItem Content="Пресеты" Tag="{x:Static vm:SettingsSection.Presets}" />
+          <ListBoxItem Content="Пресеты" Tag="{x:Static vm:SettingsSection.Presets}"
+                       Visibility="{Binding IsStandard, Converter={StaticResource BoolToVisibilityConverter}}" />
           <ListBoxItem Content="Запуск и трей" Tag="{x:Static vm:SettingsSection.Startup}" />
           <ListBoxItem Content="Обновления" Tag="{x:Static vm:SettingsSection.Updates}" />
           <ListBoxItem Content="Диагностика" Tag="{x:Static vm:SettingsSection.Diagnostics}" />

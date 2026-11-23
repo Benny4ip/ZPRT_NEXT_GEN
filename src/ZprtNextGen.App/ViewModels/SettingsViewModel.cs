@@ -489,7 +489,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public SettingsSection SelectedSection
     {
         get => _selectedSection;
-        set => SetField(ref _selectedSection, value);
+        set
+        {
+            // Portable: раздел «Пресеты» скрыт (тест/кастомные пресеты завязаны на файлы движка).
+            if (IsPortable && value == SettingsSection.Presets)
+                value = SettingsSection.Main;
+            SetField(ref _selectedSection, value);
+        }
     }
 
     public ICommand OpenAboutCommand => _openAboutCommand;
@@ -674,6 +680,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         if (IsTestingPresets)
             return;
+
+        if (IsPortable)
+        {
+            PresetTestStatus = "В portable-сборке тест пресетов недоступен.";
+            return;
+        }
 
         var validation = _locateEngine(_config.Engine.Path);
         if (!validation.IsValid || string.IsNullOrWhiteSpace(validation.EngineRoot))

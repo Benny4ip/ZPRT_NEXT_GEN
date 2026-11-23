@@ -93,6 +93,16 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public void PortableBuild_PresetsSectionRedirectsToMain()
+    {
+        var vm = CreateSut(isPortable: true);
+
+        vm.SelectedSection = SettingsSection.Presets;
+
+        Assert.Equal(SettingsSection.Main, vm.SelectedSection);
+    }
+
+    [Fact]
     public void StandardBuild_ShowsEngineSettings()
     {
         var vm = CreateSut(isPortable: false);

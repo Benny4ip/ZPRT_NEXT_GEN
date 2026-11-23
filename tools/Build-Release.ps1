@@ -17,7 +17,7 @@
 param(
     [string] $EnginePath,
 
-    [string] $Version = "1.1.1",
+    [string] $Version = "1.1.2",
 
     [string] $OutputDir = "artifacts",
 
