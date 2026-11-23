@@ -26,7 +26,7 @@ public class GitHubReleaseClientTests
               "name": "1.10.4",
               "body": "release notes",
               "assets": [
-                { "name": "a.zip", "browser_download_url": "https://x/a.zip", "size": 123 },
+                { "name": "a.zip", "browser_download_url": "https://x/a.zip", "size": 123, "digest": "sha256:abc" },
                 { "name": "b.tar.gz", "browser_download_url": "https://x/b", "size": 456 }
               ]
             }
@@ -48,6 +48,7 @@ public class GitHubReleaseClientTests
         Assert.Equal("a.zip", zip.Name);
         Assert.Equal("https://x/a.zip", zip.DownloadUrl);
         Assert.Equal(123, zip.Size);
+        Assert.Equal("sha256:abc", zip.Digest);
     }
 
     [Fact]

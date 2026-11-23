@@ -21,7 +21,11 @@ param(
 
     [string] $OutputDir = "artifacts",
 
-    [switch] $SkipTests
+    [switch] $SkipTests,
+
+    [switch] $Sign,
+
+    [string] $SignTool = "signtool"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -149,6 +153,29 @@ Write-Host "Используется движок: $engineDir"
 Write-Host "Версия релиза:       $Version"
 
 # ---------------------------------------------------------------------------
+# 1b. Сверка с tools/engine-lock.json (хеш winws.exe)
+# ---------------------------------------------------------------------------
+$engineLockPath = Join-Path $RepoRoot 'tools\engine-lock.json'
+if (-not (Test-Path -Path $engineLockPath -PathType Leaf))
+{
+    throw "Не найден tools\engine-lock.json — зафиксируйте версию движка и SHA256."
+}
+$engineLock = Get-Content -Path $engineLockPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$winwsPath = Join-Path $engineDir 'bin\winws.exe'
+$actualWinws = (Get-FileHash -Path $winwsPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$expectedWinws = [string]$engineLock.winwsSha256
+if ([string]::IsNullOrWhiteSpace($expectedWinws))
+{
+    throw "В engine-lock.json нет winwsSha256."
+}
+$expectedWinws = $expectedWinws.ToLowerInvariant()
+if ($actualWinws -ne $expectedWinws)
+{
+    throw ("SHA256 bin\winws.exe не совпал с engine-lock.json (tag={0}): ожидалось {1}, получено {2}. См. docs/ENGINE_LOCK.md" -f $engineLock.tag, $expectedWinws, $actualWinws)
+}
+Write-Host ("engine-lock OK: Flowseal {0}, winws SHA256={1}" -f $engineLock.tag, $actualWinws)
+
+# ---------------------------------------------------------------------------
 # 2. Прогон тестов (если не -SkipTests)
 # ---------------------------------------------------------------------------
 if (-not $SkipTests)
@@ -233,6 +260,7 @@ $appProject = Join-Path $RepoRoot 'src\ZprtNextGen.App\ZprtNextGen.App.csproj'
 
 & dotnet publish $appProject -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
+    -p:EnableCompressionInSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:PublishReadyToRun=false `
     -p:DebugType=embedded `
@@ -246,11 +274,15 @@ if ($LASTEXITCODE -ne 0)
 
 $standardZip = Join-Path $outputDirFull "ZPRT_NEXT_GEN-v$Version-standard-win-x64.zip"
 Write-Host "Упаковка Standard-релиза через Pack-Release.ps1..."
-& (Join-Path $PSScriptRoot 'Pack-Release.ps1') `
-    -EngineDir $engineDir `
-    -PublishDir $standardPublishDir `
-    -OutputZip $standardZip `
-    -Version $Version
+$packArgs = @{
+    EngineDir  = $engineDir
+    PublishDir = $standardPublishDir
+    OutputZip  = $standardZip
+    Version    = $Version
+    SignTool   = $SignTool
+}
+if ($Sign) { $packArgs['Sign'] = $true }
+& (Join-Path $PSScriptRoot 'Pack-Release.ps1') @packArgs
 
 if ($LASTEXITCODE -ne 0)
 {
@@ -271,6 +303,7 @@ $portableEngineZipAbs = (Resolve-Path $portableEngineZip).Path
 
 & dotnet publish $appProject -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
+    -p:EnableCompressionInSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:PublishReadyToRun=false `
     -p:DebugType=embedded `
@@ -286,6 +319,26 @@ if ($LASTEXITCODE -ne 0)
 
 $portableExeSource = Join-Path $portablePublishDir 'ZprtNextGen.exe'
 Require-File $portableExeSource 'ZprtNextGen.exe в portable-publish'
+
+if ($Sign)
+{
+    $pfx = $env:ZPRT_CERT_PFX
+    $pwd = $env:ZPRT_CERT_PASSWORD
+    if ([string]::IsNullOrWhiteSpace($pfx) -or -not (Test-Path -Path $pfx -PathType Leaf))
+    {
+        throw "Параметр -Sign задан, но ZPRT_CERT_PFX не указывает на существующий PFX."
+    }
+    if ($null -eq $pwd)
+    {
+        throw "Параметр -Sign задан, но переменная ZPRT_CERT_PASSWORD не задана."
+    }
+    Write-Host "Подпись portable: $portableExeSource"
+    & $SignTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $pfx /p $pwd $portableExeSource
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "signtool (portable) завершился с кодом $LASTEXITCODE"
+    }
+}
 
 # Проверяем, что в portable-папке нет внешней папки engine
 if (Test-Path -Path (Join-Path $portablePublishDir 'engine') -PathType Container)
@@ -354,18 +407,33 @@ finally
 }
 
 # ---------------------------------------------------------------------------
-# 9. Итог
+# 9. SHA256SUMS.txt
 # ---------------------------------------------------------------------------
-Write-Host ""
-Write-Host "============================================================"
-Write-Host "Сборка ZPRT_NEXT_GEN v$Version завершена успешно!"
-Write-Host "============================================================"
-
 $artifacts = @(
     $standardZip,
     $finalPortableZip,
     $finalPortableExe
 )
+
+$sumsPath = Join-Path $outputDirFull 'SHA256SUMS.txt'
+$sumsLines = New-Object System.Collections.Generic.List[string]
+foreach ($art in $artifacts)
+{
+    Require-File $art 'релизный артефакт'
+    $hash = (Get-FileHash -Path $art -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sumsLines.Add(("{0}  {1}" -f $hash, [System.IO.Path]::GetFileName($art)))
+}
+# UTF-8 without BOM, LF endings for classic sha256sum tools
+[System.IO.File]::WriteAllText($sumsPath, ($sumsLines -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
+Write-Host "Записан $sumsPath"
+
+# ---------------------------------------------------------------------------
+# 10. Итог
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "============================================================"
+Write-Host "Сборка ZPRT_NEXT_GEN v$Version завершена успешно!"
+Write-Host "============================================================"
 
 foreach ($art in $artifacts)
 {
@@ -376,5 +444,6 @@ foreach ($art in $artifacts)
         Write-Host ("  {0,-50} : {1,6} MB" -f $item.Name, $sizeMb)
     }
 }
+Write-Host ("  {0,-50} : checksums" -f 'SHA256SUMS.txt')
 Write-Host "============================================================"
 Write-Host "Директория артефактов: $outputDirFull"

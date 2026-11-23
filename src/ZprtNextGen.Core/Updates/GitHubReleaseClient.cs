@@ -51,10 +51,15 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient
         {
             foreach (var item in assetsEl.EnumerateArray())
             {
+                string? digest = null;
+                if (item.TryGetProperty("digest", out var digestEl) && digestEl.ValueKind == JsonValueKind.String)
+                    digest = digestEl.GetString();
+
                 assets.Add(new ReleaseAsset(
                     item.GetProperty("name").GetString() ?? string.Empty,
                     item.GetProperty("browser_download_url").GetString() ?? string.Empty,
-                    item.GetProperty("size").GetInt64()));
+                    item.GetProperty("size").GetInt64(),
+                    digest));
             }
         }
 

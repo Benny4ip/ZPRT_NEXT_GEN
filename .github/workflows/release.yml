@@ -6,10 +6,11 @@ on:
       version:
         description: 'Версия релиза (без префикса v)'
         required: true
-        default: '0.1.0'
+        default: '1.1.0'
       engine_url:
-        description: 'URL архива с движком zapret (должен содержать bin\winws.exe)'
-        required: true
+        description: 'URL zip движка (пусто = tools/engine-lock.json)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -26,44 +27,88 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Publish app
-        run: dotnet publish src/ZprtNextGen.App -c Release -o publish/app
+      - name: Read engine lock
+        id: lock
+        shell: pwsh
+        run: |
+          $lock = Get-Content tools/engine-lock.json -Raw | ConvertFrom-Json
+          $url = '${{ github.event.inputs.engine_url }}'.Trim()
+          if ([string]::IsNullOrWhiteSpace($url)) { $url = [string]$lock.url }
+          "url=$url" >> $env:GITHUB_OUTPUT
+          "sha256=$($lock.sha256.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "tag=$($lock.tag)" >> $env:GITHUB_OUTPUT
+          "asset=$($lock.asset)" >> $env:GITHUB_OUTPUT
+          "winws=$($lock.winwsSha256.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - name: Download engine
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "${{ github.event.inputs.engine_url }}" -OutFile engine.zip
+          $url = '${{ steps.lock.outputs.url }}'
+          $expected = '${{ steps.lock.outputs.sha256 }}'
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile engine.zip
+          $actual = (Get-FileHash engine.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "SHA256 engine.zip mismatch: expected $expected, got $actual"
+          }
+          Write-Host "engine.zip SHA256 OK ($actual)"
 
       - name: Extract engine
         shell: pwsh
         run: |
           Expand-Archive -Path engine.zip -DestinationPath engine-src -Force
-
-      - name: Locate engine folder
-        shell: pwsh
-        run: |
           $winws = Get-ChildItem -Path engine-src -Recurse -Filter winws.exe | Select-Object -First 1
           if (-not $winws) { throw 'bin\winws.exe не найден в engine.zip' }
           $engineRoot = $winws.Directory.Parent.FullName
+          $actualWinws = (Get-FileHash $winws.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expectedWinws = '${{ steps.lock.outputs.winws }}'
+          if ($actualWinws -ne $expectedWinws) {
+            throw "SHA256 winws.exe mismatch: expected $expectedWinws, got $actualWinws"
+          }
           New-Item -ItemType Directory -Path engine -Force | Out-Null
           Copy-Item -Path (Join-Path $engineRoot '*') -Destination engine -Recurse -Force
 
-      # Подпись (опционально): задайте secrets ZPRT_CERT_PFX_B64 + ZPRT_CERT_PASSWORD
-      # и вызовите Pack-Release.ps1 с -Sign. См. docs/CODE_SIGNING.md.
-      - name: Pack release
+      - name: Prepare signing secrets
+        if: ${{ secrets.ZPRT_CERT_PFX_B64 != '' && secrets.ZPRT_CERT_PASSWORD != '' }}
+        shell: pwsh
+        env:
+          ZPRT_CERT_PFX_B64: ${{ secrets.ZPRT_CERT_PFX_B64 }}
+          ZPRT_CERT_PASSWORD: ${{ secrets.ZPRT_CERT_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'zprt.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:ZPRT_CERT_PFX_B64))
+          "ZPRT_CERT_PFX=$pfx" >> $env:GITHUB_ENV
+          "ZPRT_CERT_PASSWORD=$env:ZPRT_CERT_PASSWORD" >> $env:GITHUB_ENV
+          "ZPRT_SIGN=1" >> $env:GITHUB_ENV
+
+      - name: Build release artifacts
         shell: pwsh
         run: |
-          tools\Pack-Release.ps1 -EngineDir engine -Version "${{ github.event.inputs.version }}"
+          $sign = $env:ZPRT_SIGN -eq '1'
+          if ($sign) {
+            tools\Build-Release.ps1 -EnginePath engine -Version "${{ github.event.inputs.version }}" -Sign
+          } else {
+            Write-Host 'Signing secrets not set — building unsigned.'
+            tools\Build-Release.ps1 -EnginePath engine -Version "${{ github.event.inputs.version }}"
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZPRT_NEXT_GEN-${{ github.event.inputs.version }}-win-x64
-          path: publish\ZPRT_NEXT_GEN-win-x64.zip
+          path: |
+            artifacts/ZPRT_NEXT_GEN-v${{ github.event.inputs.version }}-standard-win-x64.zip
+            artifacts/ZPRT_NEXT_GEN-v${{ github.event.inputs.version }}-portable-win-x64.zip
+            artifacts/ZPRT_NEXT_GEN-v${{ github.event.inputs.version }}-portable-win-x64.exe
+            artifacts/SHA256SUMS.txt
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.version }}
-          files: publish\ZPRT_NEXT_GEN-win-x64.zip
+          files: |
+            artifacts/ZPRT_NEXT_GEN-v${{ github.event.inputs.version }}-standard-win-x64.zip
+            artifacts/ZPRT_NEXT_GEN-v${{ github.event.inputs.version }}-portable-win-x64.zip
+            artifacts/ZPRT_NEXT_GEN-v${{ github.event.inputs.version }}-portable-win-x64.exe
+            artifacts/SHA256SUMS.txt
           generate_release_notes: true
