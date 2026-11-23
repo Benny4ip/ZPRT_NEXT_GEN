@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 PackageIdentifier: Benny4ip.ZPRTNextGen
-PackageVersion: 1.1.0
+PackageVersion: 1.1.1
 PackageLocale: ru-RU
 Publisher: Benny4ip
 PublisherUrl: https://github.com/Benny4ip
@@ -24,6 +24,6 @@ Tags:
   - wpf
   - discord
   - youtube
-ReleaseNotesUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/tag/v1.1.0
+ReleaseNotesUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/tag/v1.1.1
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

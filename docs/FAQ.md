@@ -15,7 +15,7 @@
 ## Как установить?
 
 1. Откройте [последний релиз](https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest).
-2. Скачайте **standard** zip (~68 МБ, папка с `engine/`) или **portable** (exe ~167 МБ / zip ~68 МБ).
+2. Скачайте **standard** zip (~68 МБ, папка с `engine/`) или **portable** (exe ~74 МБ / zip ~68 МБ).
    Хеши — в `SHA256SUMS.txt`.
 3. Распакуйте (для zip) и запустите `ZprtNextGen.exe` от имени администратора.
 4. Нажмите «Включить».

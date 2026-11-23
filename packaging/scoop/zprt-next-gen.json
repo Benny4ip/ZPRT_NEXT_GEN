@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Русскоязычная графическая оболочка для winws / zapret (Discord, YouTube).",
   "homepage": "https://github.com/Benny4ip/ZPRT_NEXT_GEN",
   "license": "MIT",
@@ -10,8 +10,8 @@
   ],
   "architecture": {
     "64bit": {
-      "url": "https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/download/v1.1.0/ZPRT_NEXT_GEN-v1.1.0-portable-win-x64.zip",
-      "hash": "eedebc0139fc3230f5d829006eb19c33261a5329f8fb5056de7a23fe3effab4e"
+      "url": "https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/download/v1.1.1/ZPRT_NEXT_GEN-v1.1.1-portable-win-x64.zip",
+      "hash": "1b2c20b06813c09ce48cead6b16b70f0679144a953f63abb64f774a7247e338d"
     }
   },
   "bin": "ZprtNextGen.exe",

@@ -18,7 +18,7 @@
 ZPRT NEXT GEN — графическая оболочка для zapret на Windows.
 
 • один клик: подбор пресета и проверка Discord / YouTube
-• standard zip (~68 МБ) или portable exe (~167 МБ)
+• standard zip (~68 МБ) или portable exe (~74 МБ)
 • обновления из Настроек с проверкой SHA256
 
 Скачать: https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest
