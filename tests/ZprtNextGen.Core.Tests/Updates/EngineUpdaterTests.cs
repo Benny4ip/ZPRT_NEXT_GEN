@@ -84,7 +84,8 @@ public class EngineUpdaterTests
         bool stopped = false;
         var release = new ReleaseInfo("1.10.4", "1.10.4", null, new[]
         {
-            new ReleaseAsset("zapret-discord-youtube-1.10.4.zip", "https://x/z.zip", newZip.Length)
+            new ReleaseAsset("zapret-discord-youtube-1.10.4.zip", "https://x/z.zip", newZip.Length,
+                "sha256:" + Sha256Verifier.HashBytes(newZip))
         });
 
         var sut = new EngineUpdater(downloader);
@@ -129,7 +130,8 @@ public class EngineUpdaterTests
         var downloader = new FakeDownloader(badZip);
         var release = new ReleaseInfo("9.9.9", "9.9.9", null, new[]
         {
-            new ReleaseAsset("a.zip", "https://x/a.zip", badZip.Length)
+            new ReleaseAsset("a.zip", "https://x/a.zip", badZip.Length,
+                "sha256:" + Sha256Verifier.HashBytes(badZip))
         });
 
         var sut = new EngineUpdater(downloader);
@@ -174,7 +176,8 @@ public class EngineUpdaterTests
         var downloader = new FakeDownloader(zip);
         var release = new ReleaseInfo("9.9.9", "9.9.9", null, new[]
         {
-            new ReleaseAsset("a.zip", "https://x/a.zip", zip.Length)
+            new ReleaseAsset("a.zip", "https://x/a.zip", zip.Length,
+                "sha256:" + Sha256Verifier.HashBytes(zip))
         });
         var sut = new EngineUpdater(downloader);
 

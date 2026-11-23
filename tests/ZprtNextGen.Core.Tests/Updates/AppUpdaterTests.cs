@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text;
 using ZprtNextGen.Core.Updates;
 
 namespace ZprtNextGen.Core.Tests.Updates;
@@ -7,11 +8,15 @@ public class AppUpdaterTests
 {
     private sealed class FakeDownloader : IFileDownloader
     {
-        public readonly byte[] ZipBytes;
-        public FakeDownloader(byte[] zipBytes) => ZipBytes = zipBytes;
+        private readonly Dictionary<string, byte[]> _byUrl;
+
+        public FakeDownloader(Dictionary<string, byte[]> byUrl) => _byUrl = byUrl;
+
         public Task DownloadAsync(Uri url, string destinationPath, IProgress<double>? progress, CancellationToken ct)
         {
-            File.WriteAllBytes(destinationPath, ZipBytes);
+            if (!_byUrl.TryGetValue(url.ToString(), out var bytes))
+                throw new InvalidOperationException("Unexpected URL: " + url);
+            File.WriteAllBytes(destinationPath, bytes);
             progress?.Report(100);
             return Task.CompletedTask;
         }
@@ -56,11 +61,19 @@ public class AppUpdaterTests
         Directory.CreateDirectory(appDir);
 
         var zip = MakeZip("ZprtNextGen.exe", "fake-exe-bytes");
-        var downloader = new FakeDownloader(zip);
-        var release = new ReleaseInfo("0.2.0", "0.2.0", null, new[]
+        var zipUrl = "https://x/a.zip";
+        var sumsUrl = "https://x/SHA256SUMS.txt";
+        var sums = Sha256Verifier.FormatSums([("ZPRT_NEXT_GEN-0.2.0-win-x64.zip", Sha256Verifier.HashBytes(zip))]);
+        var downloader = new FakeDownloader(new Dictionary<string, byte[]>(StringComparer.Ordinal)
         {
-            new ReleaseAsset("ZPRT_NEXT_GEN-0.2.0-win-x64.zip", "https://x/a.zip", zip.Length)
+            [zipUrl] = zip,
+            [sumsUrl] = Encoding.UTF8.GetBytes(sums),
         });
+        var release = new ReleaseInfo("0.2.0", "0.2.0", null,
+        [
+            new ReleaseAsset("ZPRT_NEXT_GEN-0.2.0-win-x64.zip", zipUrl, zip.Length),
+            new ReleaseAsset("SHA256SUMS.txt", sumsUrl, sums.Length),
+        ]);
 
         var sut = new AppUpdater(downloader);
         var plan = await sut.PrepareAsync(release, appDir, null, CancellationToken.None);
@@ -69,6 +82,47 @@ public class AppUpdaterTests
         Assert.True(File.Exists(plan.NewExecutablePath));
         Assert.Equal("fake-exe-bytes", File.ReadAllText(plan.NewExecutablePath));
         Assert.True(File.Exists(plan.ScriptPath));
-        Assert.True(plan.ScriptPath.StartsWith(Path.GetTempPath()));
+        Assert.StartsWith(Path.GetTempPath(), plan.ScriptPath);
+    }
+
+    [Fact]
+    public async Task PrepareAsync_MissingChecksum_Throws()
+    {
+        var appDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(appDir);
+        var zip = MakeZip("ZprtNextGen.exe", "x");
+        var downloader = new FakeDownloader(new Dictionary<string, byte[]>
+        {
+            ["https://x/a.zip"] = zip,
+        });
+        var release = new ReleaseInfo("0.2.0", "0.2.0", null,
+        [
+            new ReleaseAsset("a.zip", "https://x/a.zip", zip.Length),
+        ]);
+
+        var sut = new AppUpdater(downloader);
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => sut.PrepareAsync(release, appDir, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task PrepareAsync_DigestMismatch_Throws()
+    {
+        var appDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(appDir);
+        var zip = MakeZip("ZprtNextGen.exe", "x");
+        var downloader = new FakeDownloader(new Dictionary<string, byte[]>
+        {
+            ["https://x/a.zip"] = zip,
+        });
+        var release = new ReleaseInfo("0.2.0", "0.2.0", null,
+        [
+            new ReleaseAsset("a.zip", "https://x/a.zip", zip.Length, "sha256:00"),
+        ]);
+
+        var sut = new AppUpdater(downloader);
+        var ex = await Assert.ThrowsAsync<InvalidDataException>(
+            () => sut.PrepareAsync(release, appDir, null, CancellationToken.None));
+        Assert.Contains("SHA256 не совпал", ex.Message);
     }
 }

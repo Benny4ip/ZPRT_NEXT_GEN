@@ -4,14 +4,22 @@
 [Releases](https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest) или на
 лендинг GitHub Pages — не на сторонние зеркала без проверки хеша.
 
+## Портфолио / резюме (без акцента на обходе)
+
+```
+Десктопное WPF-приложение для Windows на C# и .NET: интерфейс, управление
+процессами, релизы, CI и лендинг. Self-contained сборки, автообновление с
+проверкой SHA256, GitHub Actions, GitHub Pages.
+```
+
 ## Короткий пост (Telegram / Discord)
 
 ```
 ZPRT NEXT GEN — графическая оболочка для zapret на Windows.
 
 • один клик: подбор пресета и проверка Discord / YouTube
-• standard zip или portable exe
-• обновления из Настроек
+• standard zip (~68 МБ) или portable exe (~167 МБ)
+• обновления из Настроек с проверкой SHA256
 
 Скачать: https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest
 Сайт: https://benny4ip.github.io/ZPRT_NEXT_GEN/
@@ -34,7 +42,7 @@ FAQ: https://github.com/Benny4ip/ZPRT_NEXT_GEN/blob/main/docs/FAQ.md
 ## Чеклист релиза (перед анонсом)
 
 1. Собрать артефакты (`tools/Build-Release.ps1` / workflow `release`).
-2. Загрузить на GitHub Release с понятными именами `*-standard-*` / `*-portable-*`.
+2. Загрузить на GitHub Release с понятными именами `*-standard-*` / `*-portable-*` и `SHA256SUMS.txt`.
 3. Обновить хеши в `packaging/winget` и `packaging/scoop`.
 4. Прописать changelog в теле релиза.
 5. Прогнать `--portable-check` на portable-сборке.

@@ -27,7 +27,7 @@ ZPRT_NEXT_GEN — WPF-оболочка вокруг `winws.exe` (движок о
 
 * Групповой выбор пресетов (Обычные / Fake TLS / Simple Fake / Экспериментальные).
 * Включение/выключение обхода одной кнопкой; отображение статуса движка и индикатор состояния.
-* Проверка связи («Проверить связь») — доходность целевых ресурсов.
+* Проверка связи («Проверить связь») — доступность целевых ресурсов.
 * Сворачивание в трей с иконкой, окно «О программе», возврат из трея.
 * Автозапуск через задание планировщика (`schtasks`).
 * Настройки хранятся в `%APPDATA%\ZPRT_NEXT_GEN\settings.json`.
@@ -41,8 +41,9 @@ ZPRT_NEXT_GEN — WPF-оболочка вокруг `winws.exe` (движок о
 
 ## Быстрый старт
 
-1. Скачайте последний релиз: **standard** zip или **portable** exe/zip с
+1. Скачайте последний релиз: **standard** zip (~68 МБ) или **portable** exe (~167 МБ) / zip (~68 МБ) с
    [Releases](https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest).
+   Контрольные суммы — в `SHA256SUMS.txt` того же релиза; автообновление сверяет хеш перед заменой.
 2. Распакуйте архив в любую папку (путь может содержать пробелы и кириллицу).
 3. Запустите `ZprtNextGen.exe` от имени администратора (первый запуск запросит права через UAC).
 4. Нажмите «Включить» — приложение подберёт пресет и проверит Discord / YouTube.
@@ -102,7 +103,7 @@ ZPRT_NEXT_GEN/
 ├── site/                   # лендинг GitHub Pages
 ├── packaging/              # манифесты winget / scoop
 ├── assets/                 # иконка приложения (icon.ico, icon.svg)
-├── docs/                   # FAQ, DISTRIBUTION, CODE_SIGNING, CODE_MAP, screenshot
+├── docs/                   # FAQ, DISTRIBUTION, CODE_SIGNING, ENGINE_LOCK, CODE_MAP
 ├── licenses/               # лицензии сторонних компонентов
 ├── presets/                # presets.json — каталог пресетов winws
 ├── src/
@@ -110,7 +111,9 @@ ZPRT_NEXT_GEN/
 │   └── ZprtNextGen.Core/   # ядро: пресеты, движок, сеть, настройки, автозапуск
 ├── tests/                  # юнит-тесты (xUnit)
 ├── tools/
-│   ├── Pack-Release.ps1    # упаковка релиза (+ опциональный -Sign)
+│   ├── Build-Release.ps1   # full release: tests, standard+portable, SHA256SUMS, -Sign
+│   ├── Pack-Release.ps1    # упаковка standard (+ опциональный -Sign)
+│   ├── engine-lock.json    # закреплённый тег/хеш Flowseal
 │   ├── Import-Presets.ps1  # импорт пресетов из zapret
 │   ├── Index-Code.ps1      # индекс типов и XAML-ключей → .ai/code-index.md
 │   └── ZprtNextGen.PresetTool/   # CLI-инструмент сборки presets.json

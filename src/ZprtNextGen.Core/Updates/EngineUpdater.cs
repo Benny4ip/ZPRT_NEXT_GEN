@@ -53,6 +53,20 @@ public sealed class EngineUpdater : IEngineUpdater
             progress?.Report("Скачивание движка...");
             await _downloader.DownloadAsync(new Uri(zipAsset.DownloadUrl), tempZip, null, ct);
 
+            var integrityDir = Path.Combine(Path.GetTempPath(), "Zprt_EngineIntegrity_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(integrityDir);
+            try
+            {
+                var expectedSha = await ReleaseIntegrity.ResolveExpectedSha256Async(
+                    release, zipAsset, _downloader, integrityDir, progress, ct).ConfigureAwait(false);
+                progress?.Report("Проверка SHA256...");
+                Sha256Verifier.VerifyFile(tempZip, expectedSha);
+            }
+            finally
+            {
+                try { Directory.Delete(integrityDir, recursive: true); } catch { }
+            }
+
             var tempExtract = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
             try
             {

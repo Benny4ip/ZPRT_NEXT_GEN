@@ -21,8 +21,10 @@ signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
   publish\app\ZprtNextGen.exe
 ```
 
-`tools/Pack-Release.ps1` принимает `-Sign` и использует переменные окружения
-`ZPRT_CERT_PFX` и `ZPRT_CERT_PASSWORD`, если задан `-Sign`.
+`tools/Pack-Release.ps1` и `tools/Build-Release.ps1` принимают `-Sign` и используют
+переменные окружения `ZPRT_CERT_PFX` и `ZPRT_CERT_PASSWORD`. При `-Sign` подписываются
+и standard, и portable `ZprtNextGen.exe`. Без секретов сборка остаётся unsigned —
+это нормально до появления OV/EV или Azure Trusted Signing.
 
 ## GitHub Actions (заготовка)
 

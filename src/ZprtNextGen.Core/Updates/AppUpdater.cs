@@ -92,18 +92,25 @@ public sealed class AppUpdater : IAppUpdater
 
         try
         {
+            var expectedSha = await ReleaseIntegrity.ResolveExpectedSha256Async(
+                release, asset, _downloader, tempDirectory, progress, ct).ConfigureAwait(false);
+
             string newExe;
             if (asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             {
                 progress?.Report("Скачивание portable-версии программы...");
                 newExe = Path.Combine(tempDirectory, "ZprtNextGen.exe");
                 await _downloader.DownloadAsync(new Uri(asset.DownloadUrl), newExe, null, ct).ConfigureAwait(false);
+                progress?.Report("Проверка SHA256...");
+                Sha256Verifier.VerifyFile(newExe, expectedSha);
             }
             else
             {
                 progress?.Report("Скачивание программы...");
                 var tempZip = Path.Combine(tempDirectory, "update.zip");
                 await _downloader.DownloadAsync(new Uri(asset.DownloadUrl), tempZip, null, ct).ConfigureAwait(false);
+                progress?.Report("Проверка SHA256...");
+                Sha256Verifier.VerifyFile(tempZip, expectedSha);
 
                 ZipFile.ExtractToDirectory(tempZip, tempDirectory);
                 File.Delete(tempZip);
