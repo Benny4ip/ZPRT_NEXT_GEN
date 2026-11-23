@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ZPRT NEXT GEN — оболочка для zapret</title>
-  <meta name="description" content="Русскоязычная графическая оболочка для winws / zapret: пресеты, статус, проверка Discord и YouTube в один клик." />
-  <meta property="og:title" content="ZPRT NEXT GEN" />
-  <meta property="og:description" content="Графическая оболочка для zapret-discord-youtube на Windows." />
+  <meta name="description" content="ZPRT NEXT GEN v1.1.2 — графическая оболочка для winws / zapret: один клик для Discord и YouTube, SHA256 при обновлении, portable ~74 МБ." />
+  <meta property="og:title" content="ZPRT NEXT GEN v1.1.2" />
+  <meta property="og:description" content="Вышла v1.1.2: проверка хеша при обновлении, легче portable, актуальный движок Flowseal." />
   <meta property="og:image" content="screenshot.png" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -26,16 +26,13 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     html { scroll-behavior: smooth; }
-
     body {
       font-family: var(--font-body);
       color: var(--text);
       background: var(--bg);
       line-height: 1.5;
     }
-
     a { color: inherit; }
 
     .hero {
@@ -59,15 +56,15 @@
 
     .hero-media img {
       position: absolute;
-      right: -4%;
-      bottom: 0;
-      width: min(92%, 920px);
+      right: 2%;
+      bottom: 4%;
+      width: min(88%, 640px);
       height: auto;
       object-fit: contain;
       object-position: right bottom;
-      opacity: 0.92;
+      opacity: 0.96;
+      border-radius: 10px;
       filter: drop-shadow(0 30px 80px rgba(0, 0, 0, 0.75));
-      transform: translateY(4%);
       animation: rise 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
@@ -76,7 +73,7 @@
       inset: 0;
       z-index: 1;
       background:
-        linear-gradient(90deg, rgba(5, 5, 5, 0.96) 0%, rgba(5, 5, 5, 0.78) 42%, rgba(5, 5, 5, 0.28) 72%, transparent 100%),
+        linear-gradient(90deg, rgba(5, 5, 5, 0.97) 0%, rgba(5, 5, 5, 0.82) 40%, rgba(5, 5, 5, 0.35) 70%, transparent 100%),
         linear-gradient(180deg, transparent 55%, rgba(5, 5, 5, 0.92) 100%);
       pointer-events: none;
     }
@@ -95,16 +92,14 @@
       display: inline-flex;
       align-items: center;
       gap: 0.75rem;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1rem;
       text-decoration: none;
     }
-
     .brand img {
       width: 2.5rem;
       height: 2.5rem;
       animation: pulse-ring 3.2s ease-in-out infinite;
     }
-
     .brand-name {
       font-family: var(--font-display);
       font-weight: 800;
@@ -112,9 +107,30 @@
       letter-spacing: 0.02em;
       line-height: 1;
     }
+    .brand-name span { color: var(--accent-glow); }
 
-    .brand-name span {
-      color: var(--accent-glow);
+    .release-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 1rem;
+      padding: 0.35rem 0.75rem;
+      border: 1px solid rgba(224, 27, 46, 0.45);
+      background: rgba(224, 27, 46, 0.12);
+      color: #ffb4bc;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      border-radius: 0.3rem;
+    }
+    .release-pill:hover { border-color: var(--accent-glow); color: #fff; }
+    .release-pill .dot {
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: var(--accent-glow);
+      box-shadow: 0 0 8px rgba(255, 59, 78, 0.8);
     }
 
     h1 {
@@ -154,24 +170,19 @@
       border: 1px solid transparent;
       transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
     }
-
     .btn:hover { transform: translateY(-1px); }
     .btn:active { transform: translateY(0); }
-
     .btn-primary {
       background: var(--accent);
       color: #fff;
       box-shadow: 0 0 0 1px rgba(255, 59, 78, 0.25), 0 12px 40px rgba(224, 27, 46, 0.35);
     }
-
     .btn-primary:hover { background: var(--accent-glow); }
-
     .btn-ghost {
       background: transparent;
       border-color: rgba(237, 237, 237, 0.18);
       color: var(--text);
     }
-
     .btn-ghost:hover { border-color: rgba(237, 237, 237, 0.4); }
 
     .version-note {
@@ -179,7 +190,6 @@
       color: var(--muted);
       font-size: 0.85rem;
     }
-
     .version-note a { color: var(--spark); text-decoration: none; }
     .version-note a:hover { text-decoration: underline; }
 
@@ -188,7 +198,6 @@
       margin: 0 auto;
       padding: 4.5rem 0;
     }
-
     section + section { border-top: 1px solid rgba(237, 237, 237, 0.08); }
 
     .section-label {
@@ -197,27 +206,71 @@
       font-size: 1.45rem;
       margin-bottom: 0.65rem;
     }
-
     .section-copy {
       color: var(--muted);
       max-width: 42rem;
       margin-bottom: 1.75rem;
     }
 
+    .news-list {
+      display: grid;
+      gap: 1.25rem;
+    }
+    @media (min-width: 820px) {
+      .news-list { grid-template-columns: 1.15fr 1fr; gap: 1.5rem; }
+    }
+
+    .news-card {
+      background: linear-gradient(160deg, rgba(224, 27, 46, 0.1), rgba(20, 20, 20, 0.6));
+      border: 1px solid rgba(237, 237, 237, 0.1);
+      border-radius: 0.55rem;
+      padding: 1.35rem 1.4rem;
+    }
+    .news-card.secondary {
+      background: var(--surface);
+      border-color: rgba(237, 237, 237, 0.08);
+    }
+    .news-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem 0.85rem;
+      align-items: center;
+      margin-bottom: 0.7rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .news-tag {
+      color: var(--accent-glow);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+    }
+    .news-card h3 {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.65rem;
+    }
+    .news-card ul {
+      margin: 0;
+      padding-left: 1.1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .news-card li { margin: 0.35rem 0; }
+    .news-card a { color: var(--spark); text-decoration: none; }
+    .news-card a:hover { text-decoration: underline; }
+
     .steps {
       display: grid;
       gap: 1.25rem;
       counter-reset: step;
     }
-
     @media (min-width: 720px) {
       .steps { grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
     }
-
-    .step {
-      padding-top: 0.25rem;
-    }
-
+    .step { padding-top: 0.25rem; }
     .step::before {
       counter-increment: step;
       content: "0" counter(step);
@@ -229,23 +282,19 @@
       letter-spacing: 0.08em;
       margin-bottom: 0.55rem;
     }
-
     .step h3 {
       font-family: var(--font-display);
       font-size: 1.05rem;
       font-weight: 700;
       margin-bottom: 0.35rem;
     }
-
     .step p { color: var(--muted); font-size: 0.95rem; }
 
     .faq details {
       border-top: 1px solid rgba(237, 237, 237, 0.1);
       padding: 1rem 0;
     }
-
     .faq details:last-child { border-bottom: 1px solid rgba(237, 237, 237, 0.1); }
-
     .faq summary {
       cursor: pointer;
       font-weight: 600;
@@ -254,24 +303,19 @@
       justify-content: space-between;
       gap: 1rem;
     }
-
     .faq summary::-webkit-details-marker { display: none; }
-
     .faq summary::after {
       content: "+";
       color: var(--accent-glow);
       font-family: var(--font-display);
       font-weight: 700;
     }
-
     .faq details[open] summary::after { content: "–"; }
-
     .faq p {
       color: var(--muted);
       margin-top: 0.65rem;
       max-width: 48rem;
     }
-
     .faq a { color: var(--spark); }
 
     footer {
@@ -286,20 +330,17 @@
       justify-content: space-between;
       border-top: 1px solid rgba(237, 237, 237, 0.08);
     }
-
     footer a { color: var(--text); text-decoration: none; }
     footer a:hover { color: var(--accent-glow); }
 
     @keyframes rise {
       from { opacity: 0; transform: translateY(8%) scale(1.02); }
-      to { opacity: 0.92; transform: translateY(4%) scale(1); }
+      to { opacity: 0.96; transform: translateY(0) scale(1); }
     }
-
     @keyframes fade-up {
       from { opacity: 0; transform: translateY(18px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
     @keyframes pulse-ring {
       0%, 100% { filter: drop-shadow(0 0 0 transparent); }
       50% { filter: drop-shadow(0 0 10px rgba(255, 59, 78, 0.55)); }
@@ -307,16 +348,14 @@
 
     @media (max-width: 820px) {
       .hero-media img {
-        width: min(100%, 640px);
-        right: -18%;
-        opacity: 0.55;
+        width: min(100%, 520px);
+        right: -8%;
+        opacity: 0.5;
       }
-
       .hero-content {
         max-width: 100%;
         padding-top: 5.5rem;
       }
-
       .hero-scrim {
         background:
           linear-gradient(180deg, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.88) 48%, rgba(5, 5, 5, 0.97) 100%);
@@ -334,7 +373,7 @@
 <body>
   <header class="hero">
     <div class="hero-media" aria-hidden="true">
-      <img src="screenshot.png" alt="" width="1280" height="800" />
+      <img src="screenshot.png" alt="" width="760" height="720" />
     </div>
     <div class="hero-scrim" aria-hidden="true"></div>
     <div class="hero-content">
@@ -342,15 +381,52 @@
         <img src="icon.svg" alt="" width="40" height="40" />
         <div class="brand-name">ZPRT <span>NEXT GEN</span></div>
       </a>
+      <a class="release-pill" id="release-pill" href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/tag/v1.1.2">
+        <span class="dot" aria-hidden="true"></span>
+        Новая версия · v1.1.2
+      </a>
       <h1>Обход блокировок в один клик на Windows</h1>
       <p class="lede">Графическая оболочка для winws из zapret: пресеты, статус, проверка Discord и YouTube.</p>
       <div class="cta-row">
-        <a class="btn btn-primary" id="download-btn" href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest">Скачать релиз</a>
-        <a class="btn btn-ghost" href="https://github.com/Benny4ip/ZPRT_NEXT_GEN">GitHub</a>
+        <a class="btn btn-primary" id="download-btn" href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest">Скачать v1.1.2</a>
+        <a class="btn btn-ghost" href="#news">Что нового</a>
       </div>
-      <p class="version-note" id="version-note">Актуальная сборка — на странице <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/latest">Releases</a>.</p>
+      <p class="version-note" id="version-note">Актуально: <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/tag/v1.1.2">v1.1.2</a> · standard zip и portable exe.</p>
     </div>
   </header>
+
+  <section id="news">
+    <h2 class="section-label">Новости проекта</h2>
+    <p class="section-copy">Свежие релизы с GitHub. Подпись Code Signing пока без платного сертификата — качаем с официальных Releases.</p>
+    <div class="news-list">
+      <article class="news-card">
+        <div class="news-meta">
+          <span class="news-tag">Latest</span>
+          <span>23 ноября 2026</span>
+          <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/tag/v1.1.2">v1.1.2</a>
+        </div>
+        <h3>Вышла ZPRT NEXT GEN 1.1.2</h3>
+        <ul>
+          <li>Portable: раздел «Пресеты» в настройках скрыт — он завязан на файлы Standard-движка.</li>
+          <li>Как в 1.1.1: <strong>SHA256SUMS</strong> и проверка хеша при автообновлении.</li>
+          <li>Движок Flowseal <strong>1.10.4</strong>, portable exe ≈ <strong>74 МБ</strong>.</li>
+        </ul>
+      </article>
+      <article class="news-card secondary">
+        <div class="news-meta">
+          <span class="news-tag">Ранее</span>
+          <span>23 ноября 2026</span>
+          <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/tag/v1.1.1">v1.1.1</a>
+        </div>
+        <h3>1.1.1 — целостность и дистрибуция</h3>
+        <ul>
+          <li>Проверка SHA256 при обновлении программы и движка.</li>
+          <li>Сжатый portable (раньше ~167 МБ).</li>
+          <li>Сайт, FAQ, манифесты scoop/winget, хуки для будущей подписи.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
 
   <section>
     <h2 class="section-label">Быстрый старт</h2>
@@ -377,24 +453,24 @@
 
     <details>
       <summary>Антивирус ругается — это нормально?</summary>
-      <p>Часто да: winws и WinDivert перехватывают трафик, эвристики принимают это за угрозу. Добавьте папку приложения в исключения. Подробности — в гайде по code signing и AV.</p>
+      <p>Часто да: winws и WinDivert перехватывают трафик, эвристики принимают это за угрозу. Добавьте папку приложения в исключения.</p>
     </details>
     <details>
       <summary>Как обновить программу?</summary>
-      <p>Настройки → Обновления → «Проверить» / «Обновить программу». При старте приложение также сообщит в трее, если вышла новая версия.</p>
+      <p>Настройки → Обновления → «Проверить» / «Обновить программу». С v1.1.1 приложение сверяет SHA256 перед заменой файлов. При старте в трее будет уведомление, если вышла новая версия.</p>
     </details>
     <details>
       <summary>Есть установка через winget или scoop?</summary>
-      <p>Манифесты лежат в репозитории (<code>packaging/</code>). Пока пакеты не в официальных репозиториях — ставьте из GitHub Releases или по инструкции в README.</p>
+      <p>Манифесты лежат в репозитории (<code>packaging/</code>). Пока пакеты не в официальных репозиториях — ставьте из GitHub Releases.</p>
     </details>
   </section>
 
   <footer>
     <span>MIT · оболочка Benny4ip · движок — upstream zapret</span>
     <span>
-      <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/blob/main/docs/FAQ.md">FAQ</a>
+      <a href="#news">Новости</a>
       ·
-      <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/blob/main/docs/DISTRIBUTION.md">Распространение</a>
+      <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/blob/main/docs/FAQ.md">FAQ</a>
       ·
       <a href="https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases">Releases</a>
     </span>
@@ -404,6 +480,7 @@
     (function () {
       var note = document.getElementById("version-note");
       var btn = document.getElementById("download-btn");
+      var pill = document.getElementById("release-pill");
       fetch("https://api.github.com/repos/Benny4ip/ZPRT_NEXT_GEN/releases/latest")
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
@@ -421,11 +498,15 @@
             btn.href = preferred.browser_download_url;
             btn.textContent = "Скачать " + tag;
           }
-          note.innerHTML = "Сейчас актуально <a href=\"" + data.html_url + "\">" + tag + "</a>"
+          if (pill) {
+            pill.href = data.html_url;
+            pill.innerHTML = '<span class="dot" aria-hidden="true"></span>Новая версия · ' + tag;
+          }
+          note.innerHTML = "Актуально: <a href=\"" + data.html_url + "\">" + tag + "</a>"
             + (standard ? " · standard zip" : "")
             + (portable ? " · portable exe" : "") + ".";
         })
-        .catch(function () { /* оставляем fallback на /releases/latest */ });
+        .catch(function () {});
     })();
   </script>
 </body>
