@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: Benny4ip.ZPRTNextGen
-PackageVersion: 1.1.1
+PackageVersion: 1.1.2
 Platform:
   - Windows.Desktop
 MinimumOSVersion: 10.0.19041.0
@@ -14,7 +14,7 @@ Commands:
 ReleaseDate: 2026-11-23
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/download/v1.1.1/ZPRT_NEXT_GEN-v1.1.1-portable-win-x64.exe
-    InstallerSha256: 470A61F853581ED3029F55F6EFD8C67D512687ACC2CBC53971D7EC0976EF7A12
+    InstallerUrl: https://github.com/Benny4ip/ZPRT_NEXT_GEN/releases/download/v1.1.2/ZPRT_NEXT_GEN-v1.1.2-portable-win-x64.exe
+    InstallerSha256: 3B2EEE9A1482958BB76F09095740D155F44B5D9E620F3113881C8EEB3CD4913E
 ManifestType: installer
 ManifestVersion: 1.6.0
